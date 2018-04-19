@@ -1,4 +1,4 @@
-#include "../User_Files/hw1_syscalls.h"
+#include "hw1_syscalls.h"
 #include "staticQueue.hpp"
 #include "testsMacros.h"
 #include <iostream>

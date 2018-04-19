@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "../User_Files/hw1_syscalls.h"
+#include "hw1_syscalls.h"
 #include "test_utilities.h"
 
 
