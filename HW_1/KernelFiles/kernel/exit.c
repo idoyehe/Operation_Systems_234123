@@ -47,7 +47,6 @@ static void release_task(struct task_struct * p)
 		kfree(p->log_head);//free dummy log list's head
 		p->log_head = NULL;//mark log list pointer to NULL
 		p->log_size = 0;//mark no log for this process
-		printk("release log\n");
 	}
 
 	atomic_dec(&p->user->processes);
