@@ -34,6 +34,22 @@ static void release_task(struct task_struct * p)
 #ifdef CONFIG_SMP
 	wait_task_inactive(p);
 #endif
+
+	/*WET1 free allocated memory for process with log when TERMINATED*/
+	if(p->pclSw != DISABLE_PCL || p->log_head != NULL){ //policy is active
+		forbidden_activity_info_list *entry_temp = NULL;
+		list_t *node_temp = NULL;
+		list_for_each(node_temp,p->log_head){
+			entry_temp = list_entry(node_temp, forbidden_activity_info_list,my_ptr);
+			list_del(node_temp);
+			kfree(entry_temp);
+		}
+		kfree(p->log_head);//free dummy log list's head
+		p->log_head = NULL;//mark log list pointer to NULL
+		p->log_size = 0;//mark no log for this process
+		printk("release log\n");
+	}
+
 	atomic_dec(&p->user->processes);
 	free_uid(p->user);
 	unhash_process(p);
@@ -498,21 +514,6 @@ NORET_TYPE void do_exit(long code)
 		panic("Attempted to kill init!");
 	tsk->flags |= PF_EXITING;
 	del_timer_sync(&tsk->real_timer);
-
-
-	/*WET1 free allocated memory for process with log when TERMINATED*/
-	if(tsk->pclSw != DISABLE_PCL || tsk->log_head != NULL){ //policy is active
-		forbidden_activity_info_list *entry_temp = NULL;
-		list_t *node_temp = NULL;
-		list_for_each(node_temp,tsk->log_head){
-			entry_temp = list_entry(node_temp, forbidden_activity_info_list,my_ptr);
-			list_del(node_temp);
-			kfree(entry_temp);
-		}
-		kfree(tsk->log_head);//free dummy log list's head
-		tsk->log_head = NULL;//mark log list pointer to NULL
-		tsk->log_size = 0;//mark no log for this process
-	}
 
 fake_volatile:
 #ifdef CONFIG_BSD_PROCESS_ACCT
