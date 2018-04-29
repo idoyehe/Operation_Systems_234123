@@ -464,11 +464,8 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		mmdrop(oldmm);
 	}
 
-	/* Here we just switch the register state and the stack. */
-	switch_to(prev, next, prev);
-
 	/*wet2 implementing logger */
-	if(logger_enable == true){
+	if(logger_enable == ON && log_index < log_size){
 		log_arr[log_index].prev = prev->pid;
 		log_arr[log_index].next = next->pid;
 		log_arr[log_index].prev_priority = prev->prio;
@@ -478,6 +475,10 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		log_arr[log_index].switch_time = jiffies;
 		log_index++;
 	}
+
+
+	/* Here we just switch the register state and the stack. */
+	switch_to(prev, next, prev);
 	return prev;
 }
 

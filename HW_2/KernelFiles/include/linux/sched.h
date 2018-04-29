@@ -126,6 +126,7 @@ struct sched_param {
 
 struct completion;
 
+/*wet2 global logger*/
 typedef struct {
 	pid_t prev;
 	pid_t next;
@@ -134,13 +135,19 @@ typedef struct {
 	int prev_policy;
 	int next_policy;
 	long switch_time;
-} cs_log;
+}cs_log;
 
-bool logger_enable = false;
-int log_size = 0;
-int log_index = 0;
-cs_log * log_arr = NULL;
+typedef enum {
+	ON = 0,
+	OFF = 1,
+} LOG_SWITCH;
 
+
+extern LOG_SWITCH logger_enable;
+extern int log_size;
+extern int log_index;
+extern cs_log* log_arr;
+/*wet2 end */
 
 #ifdef __KERNEL__
 
