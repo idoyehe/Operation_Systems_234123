@@ -41,5 +41,9 @@ int main(){
     sleep(5);
     ASSERT_TEST(get_logger_records(log_arr10) == 0 );
     printLogger(log_arr10,10);
+
+    printf("print the log last time\n");
+    ASSERT_TEST(get_logger_records(log_arr10) == 0);
+    printLogger(log_arr10,10);
     return 0;
 }
