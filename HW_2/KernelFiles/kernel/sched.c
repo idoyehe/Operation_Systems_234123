@@ -478,7 +478,6 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		log_arr[log_index].switch_time = jiffies;
 		log_index++;
 	}
-
 	return prev;
 }
 
