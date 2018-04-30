@@ -5,6 +5,9 @@
 #include "hw2_syscalls.h"
 #include "test_utilities.h"
 
+#define SCHED_LOTTERY	3
+
+
 void printLogger(cs_log* log_arr, int size){
     printf("The logger is:\n");
     int i;
@@ -45,5 +48,16 @@ int main(){
     printf("print the log last time\n");
     ASSERT_TEST(get_logger_records(log_arr10) == 0);
     printLogger(log_arr10,10);
+
+    ASSERT_TEST(disable_logging() == 0);
+    ASSERT_TEST(start_lottery_scheduler() == 0);
+    ASSERT_TEST(start_lottery_scheduler() == -1 && errno == EINVAL);
+    ASSERT_TEST(start_orig_scheduler() == 0);
+    ASSERT_TEST(start_orig_scheduler() == -1 && errno == EINVAL);
+    ASSERT_TEST(sched_setscheduler(my_pid,SCHED_LOTTERY,NULL) == -1 && errno == EINVAL);
+    ASSERT_TEST(start_lottery_scheduler() == 0);
+    ASSERT_TEST(sched_setscheduler(my_pid,0,NULL) == -1 && errno == EINVAL);
+    ASSERT_TEST(start_orig_scheduler() == 0);
+
     return 0;
 }
