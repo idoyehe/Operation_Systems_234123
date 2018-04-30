@@ -652,7 +652,9 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_enable_logging) /* 243 WET 2 syscall*/
 	.long SYMBOL_NAME(sys_disable_logging) /* 244 WET 2 syscall*/
 	.long SYMBOL_NAME(sys_get_logger_records) /* 245 WET 2 syscall*/
-
+	.long SYMBOL_NAME(sys_start_lottery_scheduler) /* 246 WET 2 syscall*/
+	.long SYMBOL_NAME(sys_start_orig_scheduler) /* 247 WET 2 syscall*/
+	.long SYMBOL_NAME(sys_set_max_tickets) /* 248 WET 2 syscall*/
 
 
 	.rept NR_syscalls-(.-sys_call_table)/4

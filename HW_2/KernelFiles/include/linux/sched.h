@@ -119,6 +119,7 @@ extern unsigned long nr_uninterruptible(void);
 #define SCHED_OTHER		0
 #define SCHED_FIFO		1
 #define SCHED_RR		2
+#define SCHED_LOTTERY	3
 
 struct sched_param {
 	int sched_priority;
@@ -135,18 +136,25 @@ typedef struct {
 	int prev_policy;
 	int next_policy;
 	long switch_time;
+	int n_tickets;
 }cs_log;
 
 typedef enum {
 	ON = 0,
 	OFF = 1,
-} LOG_SWITCH;
+} SWITCH;
 
 
-extern LOG_SWITCH logger_enable;
+extern SWITCH logger_enable;
 extern int log_size;
 extern int log_index;
 extern cs_log* log_arr;
+
+extern SWITCH sched_lottery_enable;
+extern int total_processes_tickets;
+extern int max_tickets;
+extern int NT;
+
 /*wet2 end */
 
 #ifdef __KERNEL__
@@ -474,6 +482,12 @@ struct task_struct {
 
 /* journalling filesystem info */
 	void *journal_info;
+
+/* wet2 new attribute to task struct*/
+	int number_tickets;
+	unsigned long old_policy;
+	unsigned int old_time_slice;
+
 };
 
 /*
@@ -579,6 +593,13 @@ extern struct exec_domain	default_exec_domain;
     blocked:		{{0}},						\
     alloc_lock:		SPIN_LOCK_UNLOCKED,				\
     journal_info:	NULL,						\
+
+    /* wet2 attribute initilizing start */
+    number_tickets: 0,			\
+	old_policy: SCHED_OTHER, 	\
+	old_time_slice: 0,			\
+	/* wet2 attribute initilizing end */
+
 }
 
 

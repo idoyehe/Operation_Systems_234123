@@ -3,10 +3,16 @@
 #include <asm-i386/uaccess.h>
 
 /*wet2 logger globals*/
-LOG_SWITCH logger_enable = OFF;
+SWITCH logger_enable = OFF;
 int log_size = 0;
 int log_index = 0;
 cs_log* log_arr = NULL;
+
+SWITCH sched_lottery_enable = OFF;
+int total_processes_tickets = 0;
+int max_tickets = 0;
+int NT = 0;
+
 
 
 int sys_enable_logging(int size){
@@ -65,4 +71,39 @@ int sys_get_logger_records(cs_log* user_mem) {
     log_index = 0;
     printk("finish copy to user all logger\nlog_index is: %d\n", log_index);
     return 0;
+}
+
+int sys_start_lottery_scheduler(){
+    printk("Welcome to sys_start_lottery_scheduler\n");
+    if(sched_lottery_enable == ON){
+        printk("lottery_scheduler is already enable\n");
+        return -EINVAL;
+    }
+    sched_lottery_enable = ON;
+    printk("lottery_scheduler is enable\n");
+    return 0;
+}
+
+
+int sys_start_orig_scheduler(){
+    printk("Welcome to sys_start_orig_scheduler\n");
+    if(sched_lottery_enable == OFF){
+        printk("lottery_scheduler is already disable\n");
+        return -EINVAL;
+    }
+    sched_lottery_enable = OFF;
+    printk("lottery_scheduler is disable\n");
+    return 0;
+}
+
+int sys_set_max_tickets(int max_tickets){
+    printk("Welcome to sys_set_max_tickets\n");
+    if (max_tickets <= 0 || max_tickets > total_processes_tickets) {
+        NT = total_processes_tickets;
+        printk("NT is total_processes_tickets, value: %d\n",NT);
+
+    } else {
+        NT = max_tickets;
+        printk("NT is max_tickets, value: %d\n", NT);
+    }
 }

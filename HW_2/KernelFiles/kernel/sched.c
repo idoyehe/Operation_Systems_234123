@@ -463,6 +463,20 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		prev->active_mm = NULL;
 		mmdrop(oldmm);
 	}
+	//TODO: think how to change total_processes_tickets;
+
+	if (sched_lottery_enable == ON) {
+		printk("updating NT in context switch\n");
+		if (max_tickets <= 0 || max_tickets > total_processes_tickets) {
+			NT = total_processes_tickets;
+			printk("NT is total_processes_tickets, value: %d\n",NT);
+
+		} else {
+			NT = max_tickets;
+			printk("NT is max_tickets, value: %d\n", NT);
+		}
+
+	}
 
 	/*wet2 implementing logger */
 	if(logger_enable == ON && log_index < log_size){
@@ -473,6 +487,11 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		log_arr[log_index].prev_policy = prev->policy;
 		log_arr[log_index].next_policy = next->policy;
 		log_arr[log_index].switch_time = jiffies;
+		log_arr[log_index].n_tickets = -1;
+		if (sched_lottery_enable == ON){
+			log_arr[log_index].n_tickets = NT;
+			printk("n_tickets is NT, value: %d\n",log_arr[log_index].n_tickets);
+		}
 		log_index++;
 	}
 
