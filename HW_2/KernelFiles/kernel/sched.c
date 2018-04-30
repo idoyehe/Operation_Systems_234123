@@ -1245,6 +1245,9 @@ out_nounlock:
 asmlinkage long sys_sched_setscheduler(pid_t pid, int policy,
 				      struct sched_param *param)
 {
+	if(sched_lottery_enable == ON || policy == SCHED_LOTTERY){
+		return -EINVAL;
+	}
 	return setscheduler(pid, policy, param);
 }
 

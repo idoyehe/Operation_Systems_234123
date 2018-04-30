@@ -593,13 +593,9 @@ extern struct exec_domain	default_exec_domain;
     blocked:		{{0}},						\
     alloc_lock:		SPIN_LOCK_UNLOCKED,				\
     journal_info:	NULL,						\
-
-    /* wet2 attribute initilizing start */
     number_tickets: 0,			\
 	old_policy: SCHED_OTHER, 	\
 	old_time_slice: 0,			\
-	/* wet2 attribute initilizing end */
-
 }
 
 

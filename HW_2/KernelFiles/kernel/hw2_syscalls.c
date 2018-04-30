@@ -9,6 +9,7 @@ int log_index = 0;
 cs_log* log_arr = NULL;
 
 SWITCH sched_lottery_enable = OFF;
+SWITCH chnged_sched = OFF;
 int total_processes_tickets = 0;
 int max_tickets = 0;
 int NT = 0;
@@ -76,10 +77,12 @@ int sys_get_logger_records(cs_log* user_mem) {
 int sys_start_lottery_scheduler(){
     printk("Welcome to sys_start_lottery_scheduler\n");
     if(sched_lottery_enable == ON){
+        chnged_sched = OFF;
         printk("lottery_scheduler is already enable\n");
         return -EINVAL;
     }
     sched_lottery_enable = ON;
+    chnged_sched = ON;
     printk("lottery_scheduler is enable\n");
     return 0;
 }
@@ -92,6 +95,7 @@ int sys_start_orig_scheduler(){
         return -EINVAL;
     }
     sched_lottery_enable = OFF;
+    chnged_sched = ON;
     printk("lottery_scheduler is disable\n");
     return 0;
 }
