@@ -57,12 +57,14 @@ int sys_get_logger_records(cs_log* user_mem) {
     printk("Welcome to sys_get_logger_records\n");
     if (user_mem == NULL) {
         printk("logger arr is NULL\n");
+        log_index = 0;
         return -ENOMEM;
     }
 
     int i;
     for (i = 0; i < log_index; i++) {
         if (copy_to_user(&(user_mem[i]),&(log_arr[i]), sizeof(cs_log)) != 0) {
+            log_index = 0;
             return -ENOMEM;
         }
         printk("finish copy to user the index: %d\n", i);
