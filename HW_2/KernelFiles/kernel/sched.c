@@ -286,6 +286,7 @@ static inline int effective_prio(task_t *p)
 		prio = MAX_RT_PRIO;
 	if (prio > MAX_PRIO-1)
 		prio = MAX_PRIO-1;
+	p->number_tickets = MAX_PRIO - prio; //HW2 updating number of tickets
 	return prio;
 }
 
@@ -826,6 +827,7 @@ void scheduler_tick(int user_tick, int system)
 	if (p->sleep_avg)
 		p->sleep_avg--;
 	if (!--p->time_slice) {
+		//TODO: inject lottery code
 		dequeue_task(p, rq->active);
 		set_tsk_need_resched(p);
 		p->prio = effective_prio(p);
