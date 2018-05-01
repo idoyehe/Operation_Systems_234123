@@ -465,34 +465,36 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 	}
 	//TODO: think how to change total_processes_tickets;
 
-	if (sched_lottery_enable == ON) {
+	if (sched_lottery.enable == ON) {
 		printk("updating NT in context switch\n");
-		if (max_tickets <= 0 || max_tickets > total_processes_tickets) {
-			NT = total_processes_tickets;
-			printk("NT is total_processes_tickets, value: %d\n",NT);
+		if (sched_lottery.max_tickets <= 0 ||
+				sched_lottery.max_tickets > sched_lottery.total_processes_tickets) {
+			sched_lottery.NT = sched_lottery.total_processes_tickets;
+			printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
 
 		} else {
-			NT = max_tickets;
-			printk("NT is max_tickets, value: %d\n", NT);
+			sched_lottery.NT = sched_lottery.max_tickets;
+			printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
 		}
 
 	}
 
 	/*wet2 implementing logger */
-	if(logger_enable == ON && log_index < log_size){
-		log_arr[log_index].prev = prev->pid;
-		log_arr[log_index].next = next->pid;
-		log_arr[log_index].prev_priority = prev->prio;
-		log_arr[log_index].next_priority = next->prio;
-		log_arr[log_index].prev_policy = prev->policy;
-		log_arr[log_index].next_policy = next->policy;
-		log_arr[log_index].switch_time = jiffies;
-		log_arr[log_index].n_tickets = -1;
-		if (sched_lottery_enable == ON){
-			log_arr[log_index].n_tickets = NT;
-			printk("n_tickets is NT, value: %d\n",log_arr[log_index].n_tickets);
+	if(logger.logger_enable == ON && logger.log_index < logger.log_size){
+		int index = logger.log_index;
+		(logger.log_arr[index]).prev = prev->pid;
+		(logger.log_arr[index]).next = next->pid;
+		(logger.log_arr[index]).prev_priority = prev->prio;
+		(logger.log_arr[index]).next_priority = next->prio;
+		(logger.log_arr[index]).prev_policy = prev->policy;
+		(logger.log_arr[index]).next_policy = next->policy;
+		(logger.log_arr[index]).switch_time = jiffies;
+		(logger.log_arr[index]).n_tickets = -1;
+		if (sched_lottery.enable == ON){
+			(logger.log_arr[index]).n_tickets = sched_lottery.NT;
+			printk("n_tickets is NT, value: %d\n",(logger.log_arr[index]).n_tickets);
 		}
-		log_index++;
+		logger.log_index++;
 	}
 
 
@@ -1247,7 +1249,7 @@ asmlinkage long sys_sched_setscheduler(pid_t pid, int policy,
 {
 	printk("Welcome to sys_sched_setscheduler\n");
 
-	if(sched_lottery_enable == ON || policy == SCHED_LOTTERY){
+	if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
 		printk("\ncannot changed to SCHED_LOTTERY or from it\n");
 		return -EINVAL;
 	}

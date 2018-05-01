@@ -144,16 +144,24 @@ typedef enum {
 	OFF = 1,
 } SWITCH;
 
+typedef struct {
+	SWITCH logger_enable;
+	int log_size;
+	int log_index;
+	cs_log* log_arr;
+}loggerW;
 
-extern SWITCH logger_enable;
-extern int log_size;
-extern int log_index;
-extern cs_log* log_arr;
+extern loggerW logger;
 
-extern SWITCH sched_lottery_enable;
-extern int total_processes_tickets;
-extern int max_tickets;
-extern int NT;
+typedef struct {
+	SWITCH enable;
+	SWITCH chnged_sched;
+	int total_processes_tickets;
+	int max_tickets;
+	int NT;
+}lotteryW;
+
+extern lotteryW sched_lottery;
 
 /*wet2 end */
 

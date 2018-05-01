@@ -2,23 +2,21 @@
 #include <linux/slab.h>
 #include <asm-i386/uaccess.h>
 
-/*wet2 logger globals*/
-SWITCH logger_enable = OFF;
-int log_size = 0;
-int log_index = 0;
-cs_log* log_arr = NULL;
+/*wet2 logger global*/
+loggerW logger =
+        {.logger_enable = OFF, .log_size = 0, .log_index = 0, .log_arr = NULL};
 
-SWITCH sched_lottery_enable = OFF;
-SWITCH chnged_sched = OFF;
-int total_processes_tickets = 0;
-int max_tickets = 0;
-int NT = 0;
+
+/*wet2 lottery global*/
+lotteryW sched_lottery =
+        {.enable = OFF, .chnged_sched = OFF, .total_processes_tickets = 0, .max_tickets = NULL, .NT =0};
+
 
 
 
 int sys_enable_logging(int size){
     printk("Welcome to sys_enable_logging\n");
-    if(logger_enable == ON){
+    if(logger.logger_enable == ON){
         printk("logger is already enable\n");
         return -EINVAL;
     }
@@ -28,27 +26,27 @@ int sys_enable_logging(int size){
         return -EINVAL;
     }
 
-    kfree(log_arr);//free previous log if exist
+    kfree(logger.log_arr);//free previous log if exist
     printk("free prev log\n");
-    log_arr = (cs_log*)kmalloc(size * (sizeof(cs_log)),GFP_KERNEL);
-    if (log_arr == NULL){
+    logger.log_arr = (cs_log*)kmalloc(size * (sizeof(cs_log)),GFP_KERNEL);
+    if (logger.log_arr == NULL){
         return -ENOMEM;
     }
     printk("allocating new log\n");
-    logger_enable = ON;
-    log_size = size;
-    log_index = 0;
+    logger.logger_enable = ON;
+    logger.log_size = size;
+    logger.log_index = 0;
     printk("init new log parameters\n");
     return 0;
 }
 
-int sys_disable_logging() {
+int sys_disable_logging(void) {
     printk("Welcome to sys_disable_logging\n");
-    if(logger_enable == OFF){
+    if(logger.logger_enable == OFF){
         printk("logger is already disable\n");
         return -EINVAL;
     }
-    logger_enable = OFF;
+    logger.logger_enable = OFF;
     printk("now logger is disable\n");
     return 0;
 }
@@ -56,58 +54,56 @@ int sys_disable_logging() {
 int sys_get_logger_records(cs_log* user_mem) {
     printk("Welcome to sys_get_logger_records\n");
     if (user_mem == NULL) {
-        printk("logger arr is NULL\n");
+        printk("user_mem is NULL\n");
+        logger.log_index = 0;
         return -ENOMEM;
     }
 
-    int i;
-    for (i = 0; i < log_index; i++) {
-        if (copy_to_user(&(user_mem[i]),&(log_arr[i]), sizeof(cs_log)) != 0) {
-            return -ENOMEM;
-        }
-        printk("finish copy to user the index: %d\n", i);
-
+    if (copy_to_user(user_mem,logger.log_arr, (sizeof(cs_log)*logger.log_index)) != 0) {
+        printk("problem copy to user the logger\n");
+        logger.log_index = 0;
+        return -ENOMEM;
     }
-
-    log_index = 0;
-    printk("finish copy to user all logger\nlog_index is: %d\n", log_index);
+    logger.log_index = 0;
+    printk("finish copy to user all logger\nlog_index is: %d\n", logger.log_index);
     return 0;
 }
 
-int sys_start_lottery_scheduler(){
+int sys_start_lottery_scheduler(void){
     printk("Welcome to sys_start_lottery_scheduler\n");
-    if(sched_lottery_enable == ON){
-        chnged_sched = OFF;
+    if(sched_lottery.enable == ON){
+        sched_lottery.chnged_sched = OFF;
         printk("lottery_scheduler is already enable\n");
         return -EINVAL;
     }
-    sched_lottery_enable = ON;
-    chnged_sched = ON;
+    sched_lottery.enable = ON;
+    sched_lottery.chnged_sched = ON;
     printk("lottery_scheduler is enable\n");
     return 0;
 }
 
 
-int sys_start_orig_scheduler(){
+int sys_start_orig_scheduler(void){
     printk("Welcome to sys_start_orig_scheduler\n");
-    if(sched_lottery_enable == OFF){
+    if(sched_lottery.enable == OFF){
         printk("lottery_scheduler is already disable\n");
         return -EINVAL;
     }
-    sched_lottery_enable = OFF;
-    chnged_sched = ON;
+    sched_lottery.enable = OFF;
+    sched_lottery.chnged_sched = ON;
     printk("lottery_scheduler is disable\n");
     return 0;
 }
 
 int sys_set_max_tickets(int max_tickets){
     printk("Welcome to sys_set_max_tickets\n");
-    if (max_tickets <= 0 || max_tickets > total_processes_tickets) {
-        NT = total_processes_tickets;
-        printk("NT is total_processes_tickets, value: %d\n",NT);
+    if (sched_lottery.max_tickets <= 0 ||
+        sched_lottery.max_tickets > sched_lottery.total_processes_tickets) {
+        sched_lottery.NT = sched_lottery.total_processes_tickets;
+        printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
 
     } else {
-        NT = max_tickets;
-        printk("NT is max_tickets, value: %d\n", NT);
+        sched_lottery.NT = max_tickets;
+        printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
     }
 }
