@@ -9,7 +9,7 @@ loggerW logger =
 
 /*wet2 lottery global*/
 lotteryW sched_lottery =
-        {.enable = OFF, .chnged_sched = OFF, .total_processes_tickets = 0, .max_tickets = NULL, .NT =0};
+        {.enable = OFF, .changed_sched = OFF, .total_processes_tickets = 0, .max_tickets = NULL, .NT =0};
 
 
 
@@ -72,12 +72,12 @@ int sys_get_logger_records(cs_log* user_mem) {
 int sys_start_lottery_scheduler(void){
     printk("Welcome to sys_start_lottery_scheduler\n");
     if(sched_lottery.enable == ON){
-        sched_lottery.chnged_sched = OFF;
+        sched_lottery.changed_sched = OFF;
         printk("lottery_scheduler is already enable\n");
         return -EINVAL;
     }
     sched_lottery.enable = ON;
-    sched_lottery.chnged_sched = ON;
+    sched_lottery.changed_sched = ON;
     printk("lottery_scheduler is enable\n");
     return 0;
 }
@@ -90,7 +90,7 @@ int sys_start_orig_scheduler(void){
         return -EINVAL;
     }
     sched_lottery.enable = OFF;
-    sched_lottery.chnged_sched = ON;
+    sched_lottery.changed_sched = ON;
     printk("lottery_scheduler is disable\n");
     return 0;
 }
