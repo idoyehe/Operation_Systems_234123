@@ -155,7 +155,7 @@ extern loggerW logger;
 
 typedef struct {
 	SWITCH enable;
-	SWITCH chnged_sched;
+	SWITCH changed_sched;
 	int total_processes_tickets;
 	int max_tickets;
 	int NT;
