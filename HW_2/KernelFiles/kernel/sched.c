@@ -1164,6 +1164,13 @@ static inline task_t *find_process_by_pid(pid_t pid)
 
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
+	printk("Welcome to setscheduler\n");
+
+	if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
+		printk("cannot changed to SCHED_LOTTERY or from it\n");
+		return -EINVAL;
+	}
+
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1245,14 +1252,7 @@ out_nounlock:
 }
 
 asmlinkage long sys_sched_setscheduler(pid_t pid, int policy,
-				      struct sched_param *param)
-{
-	printk("Welcome to sys_sched_setscheduler\n");
-
-	if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
-		printk("\ncannot changed to SCHED_LOTTERY or from it\n");
-		return -EINVAL;
-	}
+				      struct sched_param *param) {
 	return setscheduler(pid, policy, param);
 }
 
@@ -1949,3 +1949,47 @@ struct low_latency_enable_struct __enable_lowlatency = { 0, };
 
 #endif	/* LOWLATENCY_NEEDED */
 
+/*HW2 syscalls that use runqueue*/
+
+int sys_start_lottery_scheduler(void){
+	printk("Welcome to sys_start_lottery_scheduler\n");
+	if(sched_lottery.enable == ON){
+		printk("lottery_scheduler is already enable\n");
+		return -EINVAL;
+	}
+	runqueue_t *lottery_rq = this_rq();
+	//TODO: adding code the change the runqueue to lottery
+
+	sched_lottery.enable = ON;
+	printk("lottery_scheduler is enable\n");
+	return 0;
+}
+
+int sys_start_orig_scheduler(void){
+	printk("Welcome to sys_start_orig_scheduler\n");
+	if(sched_lottery.enable == OFF){
+		printk("lottery_scheduler is already disable\n");
+		return -EINVAL;
+	}
+
+	runqueue_t *lottery_rq = this_rq();
+	//TODO: adding code the change the runqueue to back to normal
+
+	sched_lottery.enable = OFF;
+	printk("lottery_scheduler is disable\n");
+	return 0;
+}
+
+int sys_set_max_tickets(int max_tickets){
+	printk("Welcome to sys_set_max_tickets\n");
+	if (sched_lottery.max_tickets <= 0 ||
+		sched_lottery.max_tickets > sched_lottery.total_processes_tickets) {
+		sched_lottery.NT = sched_lottery.total_processes_tickets;
+		printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
+	} else {
+		sched_lottery.NT = max_tickets;
+		printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
+	}
+}
+
+/*HW2 end of syscalls that use runqueue*/

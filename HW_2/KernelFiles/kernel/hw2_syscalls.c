@@ -9,7 +9,7 @@ loggerW logger =
 
 /*wet2 lottery global*/
 lotteryW sched_lottery =
-        {.enable = OFF, .changed_sched = OFF, .total_processes_tickets = 0, .max_tickets = NULL, .NT =0};
+        {.enable = OFF, .total_processes_tickets = 0, .max_tickets = NULL,.prio_total_tickets ={0}, .NT =0};
 
 
 
@@ -55,7 +55,6 @@ int sys_get_logger_records(cs_log* user_mem) {
     printk("Welcome to sys_get_logger_records\n");
     if (user_mem == NULL) {
         printk("user_mem is NULL\n");
-        logger.log_index = 0;
         return -ENOMEM;
     }
 
@@ -67,43 +66,4 @@ int sys_get_logger_records(cs_log* user_mem) {
     logger.log_index = 0;
     printk("finish copy to user all logger\nlog_index is: %d\n", logger.log_index);
     return 0;
-}
-
-int sys_start_lottery_scheduler(void){
-    printk("Welcome to sys_start_lottery_scheduler\n");
-    if(sched_lottery.enable == ON){
-        sched_lottery.changed_sched = OFF;
-        printk("lottery_scheduler is already enable\n");
-        return -EINVAL;
-    }
-    sched_lottery.enable = ON;
-    sched_lottery.changed_sched = ON;
-    printk("lottery_scheduler is enable\n");
-    return 0;
-}
-
-
-int sys_start_orig_scheduler(void){
-    printk("Welcome to sys_start_orig_scheduler\n");
-    if(sched_lottery.enable == OFF){
-        printk("lottery_scheduler is already disable\n");
-        return -EINVAL;
-    }
-    sched_lottery.enable = OFF;
-    sched_lottery.changed_sched = ON;
-    printk("lottery_scheduler is disable\n");
-    return 0;
-}
-
-int sys_set_max_tickets(int max_tickets){
-    printk("Welcome to sys_set_max_tickets\n");
-    if (sched_lottery.max_tickets <= 0 ||
-        sched_lottery.max_tickets > sched_lottery.total_processes_tickets) {
-        sched_lottery.NT = sched_lottery.total_processes_tickets;
-        printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
-
-    } else {
-        sched_lottery.NT = max_tickets;
-        printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
-    }
 }

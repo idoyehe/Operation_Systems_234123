@@ -127,44 +127,6 @@ struct sched_param {
 
 struct completion;
 
-/*wet2 global logger*/
-typedef struct {
-	pid_t prev;
-	pid_t next;
-	int prev_priority;
-	int next_priority;
-	int prev_policy;
-	int next_policy;
-	long switch_time;
-	int n_tickets;
-}cs_log;
-
-typedef enum {
-	ON = 0,
-	OFF = 1,
-} SWITCH;
-
-typedef struct {
-	SWITCH logger_enable;
-	int log_size;
-	int log_index;
-	cs_log* log_arr;
-}loggerW;
-
-extern loggerW logger;
-
-typedef struct {
-	SWITCH enable;
-	SWITCH changed_sched;
-	int total_processes_tickets;
-	int max_tickets;
-	int NT;
-}lotteryW;
-
-extern lotteryW sched_lottery;
-
-/*wet2 end */
-
 #ifdef __KERNEL__
 
 #include <linux/spinlock.h>
@@ -356,6 +318,44 @@ extern struct user_struct root_user;
 #define INIT_USER (&root_user)
 
 typedef struct prio_array prio_array_t;
+
+/*wet2 global logger*/
+typedef struct {
+	pid_t prev;
+	pid_t next;
+	int prev_priority;
+	int next_priority;
+	int prev_policy;
+	int next_policy;
+	long switch_time;
+	int n_tickets;
+}cs_log;
+
+typedef enum {
+	ON = 0,
+	OFF = 1,
+} SWITCH;
+
+typedef struct {
+	SWITCH logger_enable;
+	int log_size;
+	int log_index;
+	cs_log* log_arr;
+}loggerW;
+
+extern loggerW logger;
+
+typedef struct {
+	SWITCH enable;
+	int total_processes_tickets;
+	int max_tickets;
+	int prio_total_tickets[MAX_PRIO];
+	int NT;
+}lotteryW;
+
+extern lotteryW sched_lottery;
+
+/*wet2 end */
 
 struct task_struct {
 	/*
