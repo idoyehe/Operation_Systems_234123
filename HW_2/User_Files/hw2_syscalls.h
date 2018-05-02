@@ -101,7 +101,7 @@ int start_orig_scheduler(){
     return __res;
 }
 
-int set_max_tickets(int max_tickets){
+void set_max_tickets(int max_tickets){
     int __res;
     __asm__(
     "int $0x80;"
@@ -112,9 +112,9 @@ int set_max_tickets(int max_tickets){
 
     if((__res) < 0){
         errno = (-__res);
-        return -1;
+        return;
     }
-    return __res;
+    return;
 }
 
 #endif /* HW2_SYSCALLS_H */

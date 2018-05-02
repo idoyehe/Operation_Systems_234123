@@ -348,7 +348,7 @@ extern loggerW logger;
 typedef struct {
 	SWITCH enable;
 	int total_processes_tickets;
-	int max_tickets;
+	int user_max_tickets;
 	int prio_total_tickets[MAX_PRIO];
 	int NT;
 }lotteryW;
@@ -494,8 +494,6 @@ struct task_struct {
 /* wet2 new attribute to task struct*/
 	int number_tickets;
 	unsigned long old_policy;
-	unsigned int old_time_slice;
-
 };
 
 /*
@@ -603,7 +601,6 @@ extern struct exec_domain	default_exec_domain;
     journal_info:	NULL,						\
     number_tickets: 0,			\
 	old_policy: SCHED_OTHER, 	\
-	old_time_slice: 0,			\
 }
 
 

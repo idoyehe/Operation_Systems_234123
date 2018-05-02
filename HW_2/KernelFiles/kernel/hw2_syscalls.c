@@ -3,14 +3,20 @@
 #include <asm-i386/uaccess.h>
 
 /*wet2 logger global*/
-loggerW logger =
-        {.logger_enable = OFF, .log_size = 0, .log_index = 0, .log_arr = NULL};
+loggerW logger = {
+        .logger_enable = OFF,
+        .log_size = 0,
+        .log_index = 0,
+        .log_arr = NULL};
 
 
 /*wet2 lottery global*/
-lotteryW sched_lottery =
-        {.enable = OFF, .total_processes_tickets = 0, .max_tickets = NULL,.prio_total_tickets ={0}, .NT =0};
-
+lotteryW sched_lottery = {
+        .enable = OFF,
+        .total_processes_tickets = 0,
+        .user_max_tickets = 0,
+        .prio_total_tickets ={0},
+        .NT = 0};
 
 
 

@@ -126,6 +126,7 @@ struct prio_array {
 	list_t queue[MAX_PRIO];
 };
 
+
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -207,15 +208,31 @@ static inline void rq_unlock(runqueue_t *rq)
 	local_irq_enable();
 }
 
+
+int sys_set_max_tickets(int max_tickets); // HW2 declaration function
+
+
 /*
  * Adding/removing a task to/from a priority array:
  */
 static inline void dequeue_task(struct task_struct *p, prio_array_t *array)
 {
+
 	array->nr_active--;
 	list_del(&p->run_list);
 	if (list_empty(array->queue + p->prio))
 		__clear_bit(p->prio, array->bitmap);
+
+    if(sched_lottery.enable == ON && p->old_policy == SCHED_LOTTERY){
+        //TODO:change to p->policy == SCHED_LOTTERY
+        if(array == this_rq()->active){
+            printk("PID: %d has prio: %d with tickts: %d\n",p->pid,p->prio,p->number_tickets);
+            printk("number of tickets not must to be MAX_PRIO - prio : %d\n",MAX_PRIO-p->prio);
+            sched_lottery.total_processes_tickets -= p->number_tickets;
+            sched_lottery.prio_total_tickets[p->prio] -= p->number_tickets;
+        }
+        sys_set_max_tickets(sched_lottery.user_max_tickets);
+    }
 }
 
 static inline void enqueue_task(struct task_struct *p, prio_array_t *array)
@@ -224,7 +241,27 @@ static inline void enqueue_task(struct task_struct *p, prio_array_t *array)
 	__set_bit(p->prio, array->bitmap);
 	array->nr_active++;
 	p->array = array;
+
+    if(sched_lottery.enable == ON && p->old_policy == SCHED_LOTTERY){
+        //TODO:change to p->policy == SCHED_LOTTERY
+        if(array == this_rq()->active){
+            p->number_tickets = MAX_PRIO - p->prio;//updating process number of tickets
+
+            if(p->time_slice == 0) {
+                p->time_slice = MAX_TIMESLICE;
+            }
+
+            printk("PID: %d has prio: %d with tickts: %d\n",p->pid,p->prio,p->number_tickets);
+            printk("number of tickets MUST to be MAX_PRIO - prio : %d\n",MAX_PRIO-p->prio);
+
+            sched_lottery.total_processes_tickets += p->number_tickets;
+            sched_lottery.prio_total_tickets[p->prio] += p->number_tickets;
+        }
+        sys_set_max_tickets(sched_lottery.user_max_tickets);
+    }
+
 }
+
 
 static inline int effective_prio(task_t *p)
 {
@@ -462,21 +499,6 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 	if (unlikely(!prev->mm)) {
 		prev->active_mm = NULL;
 		mmdrop(oldmm);
-	}
-	//TODO: think how to change total_processes_tickets;
-
-	if (sched_lottery.enable == ON) {
-		printk("updating NT in context switch\n");
-		if (sched_lottery.max_tickets <= 0 ||
-				sched_lottery.max_tickets > sched_lottery.total_processes_tickets) {
-			sched_lottery.NT = sched_lottery.total_processes_tickets;
-			printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
-
-		} else {
-			sched_lottery.NT = sched_lottery.max_tickets;
-			printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
-		}
-
 	}
 
 	/*wet2 implementing logger */
@@ -1164,6 +1186,14 @@ static inline task_t *find_process_by_pid(pid_t pid)
 
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
+
+    printk("Welcome to setscheduler\n");
+
+    if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
+        printk("\ncannot changed to SCHED_LOTTERY or FROM it\n");
+        return -EINVAL;
+    }
+
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1247,12 +1277,6 @@ out_nounlock:
 asmlinkage long sys_sched_setscheduler(pid_t pid, int policy,
 				      struct sched_param *param)
 {
-	printk("Welcome to sys_sched_setscheduler\n");
-
-	if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
-		printk("\ncannot changed to SCHED_LOTTERY or from it\n");
-		return -EINVAL;
-	}
 	return setscheduler(pid, policy, param);
 }
 
@@ -1951,17 +1975,105 @@ struct low_latency_enable_struct __enable_lowlatency = { 0, };
 
 /*HW2 syscalls that use runqueue*/
 
-int sys_start_lottery_scheduler(void){
-	printk("Welcome to sys_start_lottery_scheduler\n");
-	if(sched_lottery.enable == ON){
-		printk("lottery_scheduler is already enable\n");
-		return -EINVAL;
-	}
-	runqueue_t *lottery_rq = this_rq();
-	//TODO: adding code the change the runqueue to lottery
+int sys_set_max_tickets(int max_tickets){
+    printk("Welcome to sys_set_max_tickets\n");
 
-	sched_lottery.enable = ON;
-	printk("lottery_scheduler is enable\n");
+    sched_lottery.user_max_tickets = max_tickets;
+
+    if (sched_lottery.user_max_tickets <= 0 ||
+        sched_lottery.user_max_tickets > sched_lottery.total_processes_tickets) {
+        sched_lottery.NT = sched_lottery.total_processes_tickets;
+        printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
+    } else {
+        sched_lottery.NT = sched_lottery.user_max_tickets;
+        printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
+    }
+    return 0;
+}
+
+
+int sys_start_lottery_scheduler(void) {
+    printk("Welcome to sys_start_lottery_scheduler\n");
+    if (sched_lottery.enable == ON) {
+        printk("lottery_scheduler is already enable\n");
+        return -EINVAL;
+    }
+
+    runqueue_t *lottery_rq = this_rq();
+    spin_lock_irq(&lottery_rq->lock);
+
+    printk("moving processes from active to expired;\n ");
+    printk("number of process in active is: %d;\n", lottery_rq->active->nr_active);
+    printk("number of process in expired is: %d;\n", lottery_rq->expired->nr_active);
+
+    int i;
+    for (i = 0; i < MAX_PRIO; i++) {
+        printk("reached head of prio: %d \n",i);
+
+        list_t *head = lottery_rq->active->queue +i;// goes to prio queue head
+
+        list_t *pos = NULL;
+        list_t temp;//temp storage for safe loop
+        list_t *n = &temp;
+
+        int j=1;
+        list_for_each_safe(pos,n,head){
+            printk("task number:%d;loop on queue of prio: %d \n",j++,i);
+            task_t * process = list_entry(pos, task_t, run_list);
+            printk("reached PID: %d \n",process->pid);
+            dequeue_task(process, lottery_rq->active);
+            enqueue_task(process, lottery_rq->expired);
+        }
+
+        sched_lottery.prio_total_tickets[i] = 0;
+    }
+
+    printk("all processes are in expired queue;\n");
+    printk("number of process in active is: %d;\n",
+           lottery_rq->active->nr_active);
+    printk("number of process in expired is: %d;\n",
+           lottery_rq->expired->nr_active);
+
+    sched_lottery.total_processes_tickets = 0;
+    sched_lottery.enable = ON;
+
+    for (i = 0; i < MAX_PRIO; i++) {
+        list_t *head = lottery_rq->expired->queue +i;// goes to prio queue head
+        printk("reached head of prio: %d \n",i);
+
+        list_t *pos = NULL;
+        list_t temp;//temp storage for safe loop
+        list_t *n = &temp;
+
+        int j=1;
+        list_for_each_safe(pos,n,head){
+            printk("task number:%d;loop on queue of prio: %d \n",j++,i);
+
+            task_t * process = list_entry(pos, task_t, run_list);
+            printk("reached PID: %d \n",process->pid);
+
+            process->old_policy = SCHED_LOTTERY;//TODO: delete ONLY for debug
+
+            dequeue_task(process, lottery_rq->expired);
+            enqueue_task(process, lottery_rq->active);
+            process->time_slice = MAX_TIMESLICE;
+            process->old_policy = process->policy;
+            //process->policy = SCHED_LOTTERY;//TODO: remove comment
+        }
+        printk("number of tickts in PRIO %d is: %d\n;",i, sched_lottery.prio_total_tickets[i]);
+    }
+
+    printk("all processes are in active queue;\n");
+    printk("number of process in active is: %d;\n",
+           lottery_rq->active->nr_active);
+    printk("number of process in expired is: %d;\n",
+           lottery_rq->expired->nr_active);
+
+    sys_set_max_tickets(sched_lottery.user_max_tickets);
+    set_need_resched();
+    spin_unlock_irq(&lottery_rq->lock);
+
+    printk("lottery_scheduler is enable\n");
 	return 0;
 }
 
@@ -1972,24 +2084,40 @@ int sys_start_orig_scheduler(void){
 		return -EINVAL;
 	}
 
-	runqueue_t *lottery_rq = this_rq();
-	//TODO: adding code the change the runqueue to back to normal
+//TODO: remove comment
+//    printk("number of process in expired is: %d;\n!!SHOULD BE ZERO!!",
+//           lottery_rq->expired->nr_active);
 
-	sched_lottery.enable = OFF;
-	printk("lottery_scheduler is disable\n");
-	return 0;
+
+    runqueue_t *lottery_rq = this_rq();
+    spin_lock_irq(&lottery_rq->lock);
+
+    sched_lottery.enable = OFF;
+
+    int i;
+    for (i = 0; i < MAX_PRIO; i++) {
+
+        list_t *head = lottery_rq->active->queue +i;
+        list_t *node_temp = NULL;
+
+        list_for_each(node_temp, head){
+            task_t * process = list_entry(node_temp, task_t, run_list);
+            process->policy = process->old_policy;
+            process->time_slice = TASK_TIMESLICE(process);
+        }
+        printk("prio %d is FIXED\n",i);
+
+    }
+    printk("all prios are FIXED\n");
+
+    set_need_resched();
+
+    spin_unlock_irq(&lottery_rq->lock);
+
+    printk("lottery_scheduler is disable\n");
+    return 0;
 }
 
-int sys_set_max_tickets(int max_tickets){
-	printk("Welcome to sys_set_max_tickets\n");
-	if (sched_lottery.max_tickets <= 0 ||
-		sched_lottery.max_tickets > sched_lottery.total_processes_tickets) {
-		sched_lottery.NT = sched_lottery.total_processes_tickets;
-		printk("NT is total_processes_tickets, value: %d\n",sched_lottery.NT);
-	} else {
-		sched_lottery.NT = max_tickets;
-		printk("NT is max_tickets, value: %d\n", sched_lottery.NT);
-	}
-}
+
 
 /*HW2 end of syscalls that use runqueue*/
