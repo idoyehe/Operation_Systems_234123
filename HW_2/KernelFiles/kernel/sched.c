@@ -1164,13 +1164,6 @@ static inline task_t *find_process_by_pid(pid_t pid)
 
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
-	printk("Welcome to setscheduler\n");
-
-	if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
-		printk("cannot changed to SCHED_LOTTERY or from it\n");
-		return -EINVAL;
-	}
-
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1252,7 +1245,14 @@ out_nounlock:
 }
 
 asmlinkage long sys_sched_setscheduler(pid_t pid, int policy,
-				      struct sched_param *param) {
+				      struct sched_param *param)
+{
+	printk("Welcome to sys_sched_setscheduler\n");
+
+	if(sched_lottery.enable == ON || policy == SCHED_LOTTERY){
+		printk("\ncannot changed to SCHED_LOTTERY or from it\n");
+		return -EINVAL;
+	}
 	return setscheduler(pid, policy, param);
 }
 

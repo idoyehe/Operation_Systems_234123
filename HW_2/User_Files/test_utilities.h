@@ -53,7 +53,14 @@
 							printf("%s [FAILED]\n", #name);		\
 							return false; \
 						}								\
-						printf("%s [SUCCESS]\n", #name);
+						printf("%s [SUCCESS]\n", #name)
+						
+#define RUN_TEST_CHILD(test_child, name)  test_child = fork(); \
+						if (test_child == 0) { \
+							RUN_TEST(name); \
+							return true; \
+						} \
+						wait(NULL)
 /**
  * These two macros are to help you initialize a set of examples. Look at
  * list_example_test.h for an example of how they can be used to save a lot of code
