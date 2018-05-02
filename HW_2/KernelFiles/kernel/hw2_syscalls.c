@@ -54,6 +54,7 @@ int sys_disable_logging(void) {
 int sys_get_logger_records(cs_log* user_mem) {
     printk("Welcome to sys_get_logger_records\n");
     if (user_mem == NULL) {
+        logger.log_index = 0;
         printk("user_mem is NULL\n");
         return -ENOMEM;
     }
@@ -63,7 +64,8 @@ int sys_get_logger_records(cs_log* user_mem) {
         logger.log_index = 0;
         return -ENOMEM;
     }
+    int retVal = logger.log_index;
     logger.log_index = 0;
     printk("finish copy to user all logger\nlog_index is: %d\n", logger.log_index);
-    return 0;
+    return retVal;
 }
