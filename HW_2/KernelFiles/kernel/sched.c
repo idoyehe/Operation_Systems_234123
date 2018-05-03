@@ -15,7 +15,6 @@
  *  		and per-CPU runqueues.  Additional code by Davide
  *  		Libenzi, Robert Love, and Rusty Russell.
  */
-
 #include <linux/mm.h>
 #include <linux/nmi.h>
 #include <linux/init.h>
@@ -26,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/kernel_stat.h>
+#include <linux/random.h>
 
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
@@ -223,8 +223,8 @@ static inline void dequeue_task(struct task_struct *p, prio_array_t *array)
 	if (list_empty(array->queue + p->prio))
 		__clear_bit(p->prio, array->bitmap);
 
-    if(sched_lottery.enable == ON && p->old_policy == SCHED_LOTTERY){
-        //TODO:change to p->policy == SCHED_LOTTERY
+    if(sched_lottery.enable == ON ){
+    	printk("sched_lottery.enable == ON dequeue_task\n");
         if(array == this_rq()->active){
             printk("PID: %d has prio: %d with tickts: %d\n",p->pid,p->prio,p->number_tickets);
             printk("number of tickets not must to be MAX_PRIO - prio : %d\n",MAX_PRIO-p->prio);
@@ -242,9 +242,9 @@ static inline void enqueue_task(struct task_struct *p, prio_array_t *array)
 	array->nr_active++;
 	p->array = array;
 
-    if(sched_lottery.enable == ON && p->old_policy == SCHED_LOTTERY){
-        //TODO:change to p->policy == SCHED_LOTTERY
-        if(array == this_rq()->active){
+    if(sched_lottery.enable == ON ){
+		printk("sched_lottery.enable == ON enqueue_task\n");
+		if(array == this_rq()->active){
             p->number_tickets = MAX_PRIO - p->prio;//updating process number of tickets
             if(p->time_slice == 0) {
                 p->time_slice = MAX_TIMESLICE;
@@ -513,6 +513,7 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		(logger.log_arr[index]).switch_time = jiffies;
 		(logger.log_arr[index]).n_tickets = -1;
 		if (sched_lottery.enable == ON){
+			printk("sched_lottery.enable == ON OUR logger_enable\n");
 			(logger.log_arr[index]).n_tickets = sched_lottery.NT;
 			printk("n_tickets is NT, value: %d\n",(logger.log_arr[index]).n_tickets);
 		}
@@ -800,15 +801,19 @@ void scheduler_tick(int user_tick, int system)
 	}
 	spin_lock(&rq->lock);
 	if (unlikely(rt_task(p))) {
+		printk("scheduler_tick with real time\n");
 		/*
 		 * RR tasks need a special form of timeslice management.
 		 * FIFO tasks have no timeslices.
 		 */
 		if ((p->policy == SCHED_RR || sched_lottery.enable == ON) && !--p->time_slice) {
 			p->time_slice = TASK_TIMESLICE(p);
+			printk("scheduler_tick (1) with sched_lottery.enable == ON\n");
 
 			if(sched_lottery.enable == ON){
 				p->time_slice = MAX_TIMESLICE;
+				printk("scheduler_tick (2) with sched_lottery.enable == ON\n");
+
 			}
 
 			p->first_time_slice = 0;
@@ -837,6 +842,7 @@ void scheduler_tick(int user_tick, int system)
 		p->first_time_slice = 0;
 		p->time_slice = TASK_TIMESLICE(p);
 		if(sched_lottery.enable == ON){
+			printk("scheduler_tick (3) with sched_lottery.enable == ON\n");
 			p->time_slice = MAX_TIMESLICE;
 			enqueue_task(p, rq->active);
 		}
@@ -897,6 +903,9 @@ need_resched:
 pick_next_task:
 #endif
 	if (unlikely(!rq->nr_running)) {
+		if(sched_lottery.enable == ON && rq ->active->nr_active){
+			printk("BUG!! total number of process in runqueue is 0 but in active is: %d\n",rq ->active->nr_active);
+		}
 #if CONFIG_SMP
 		load_balance(rq, 1);
 		if (rq->nr_running)
@@ -909,9 +918,43 @@ pick_next_task:
 
 	array = rq->active;
 	if(sched_lottery.enable == ON){
+		printk("schedule() when sched_lottery.enable == ON\n");
+		if(!rq ->active->nr_active){
+			printk("BUG!! total number of process in runqueue is %d but in active is 0\n",rq ->nr_running);
+		}
+		unsigned int rnd_ticket;
+		get_random_bytes(&rnd_ticket, sizeof(unsigned int));
+		rnd_ticket = rnd_ticket % sched_lottery.NT;
+		rnd_ticket++;
+		printk("the random ticket is: %u\n",rnd_ticket);
+		idx = sched_find_first_bit(array->bitmap);
+		unsigned int counter_prios_ticket = 0;
+		int __prio_next;
+		for(__prio_next = idx; __prio_next < MAX_PRIO; __prio_next++ ){
+			counter_prios_ticket += sched_lottery.prio_total_tickets[__prio_next];
+			if(counter_prios_ticket >= rnd_ticket){
+				break;
+			}
+		}
+		printk("The prio of next process to set is: %d\n",__prio_next);
+		if(__prio_next == MAX_PRIO){
+			printk("BUG!! not found prio to look for task\n");
+		}
+		counter_prios_ticket -= sched_lottery.prio_total_tickets[__prio_next];
+		list_t *head = rq->active->queue + __prio_next;
+		list_t *node_temp = NULL;
 
+		list_for_each(node_temp, head){
+			next = list_entry(node_temp, task_t, run_list);
+			counter_prios_ticket += next->number_tickets;
+			if (counter_prios_ticket >= rnd_ticket) {
+				printk("next process to run pid is: %d\n",next->pid);
+				break;
+			}
+		}
 	}
 	else {
+//		printk("schedule() when sched_lottery.enable == OFF\n");
 		if (unlikely(!array->nr_active)) {
 			/*
              * Switch the active and expired arrays.
@@ -1480,9 +1523,10 @@ asmlinkage long sys_sched_yield(void)
 		list_add(&current->run_list, array->queue[i].next);
 		__set_bit(i, array->bitmap);
 	}
-	else
+	else {
 		dequeue_task(current,rq->active);
 		enqueue_task(current,rq->active);
+	}
 
 out_unlock:
 	spin_unlock(&rq->lock);
@@ -2073,13 +2117,11 @@ int sys_start_lottery_scheduler(void) {
             task_t * process = list_entry(pos, task_t, run_list);
             printk("reached PID: %d \n",process->pid);
 
-            process->old_policy = SCHED_LOTTERY;//TODO: delete ONLY for debug
-
             dequeue_task(process, lottery_rq->expired);
             enqueue_task(process, lottery_rq->active);
             process->time_slice = MAX_TIMESLICE;
             process->old_policy = process->policy;
-            //process->policy = SCHED_LOTTERY;//TODO: remove comment
+            process->policy = SCHED_LOTTERY;
         }
         printk("number of tickts in PRIO %d is: %d\n;",i, sched_lottery.prio_total_tickets[i]);
     }
@@ -2105,13 +2147,10 @@ int sys_start_orig_scheduler(void){
 		return -EINVAL;
 	}
 
-//TODO: remove comment
-//    printk("number of process in expired is: %d;\n!!SHOULD BE ZERO!!",
-//           lottery_rq->expired->nr_active);
-
-
     runqueue_t *lottery_rq = this_rq_lock();
     spin_lock_irq(&lottery_rq->lock);
+
+	printk("number of process in expired is: %d;\n!!SHOULD BE ZERO!!\n", lottery_rq->expired->nr_active);
 
     sched_lottery.enable = OFF;
 

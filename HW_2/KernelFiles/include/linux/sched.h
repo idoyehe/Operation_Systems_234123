@@ -347,9 +347,9 @@ extern loggerW logger;
 
 typedef struct {
 	SWITCH enable;
-	int total_processes_tickets;
+	unsigned int total_processes_tickets;
 	int user_max_tickets;
-	int prio_total_tickets[MAX_PRIO];
+	unsigned int prio_total_tickets[MAX_PRIO];
 	int NT;
 }lotteryW;
 
@@ -492,7 +492,7 @@ struct task_struct {
 	void *journal_info;
 
 /* wet2 new attribute to task struct*/
-	int number_tickets;
+	unsigned int number_tickets;
 	unsigned long old_policy;
 };
 

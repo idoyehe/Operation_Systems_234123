@@ -8,7 +8,7 @@
 int main() {
 
 	start_orig_scheduler();
-	set_max_tickets(25);
+	set_max_tickets(0);
 	ASSERT_TEST(start_lottery_scheduler() == 0);
 	ASSERT_TEST(start_lottery_scheduler() == -1 && errno == EINVAL);
 	ASSERT_TEST(start_orig_scheduler() == 0);
