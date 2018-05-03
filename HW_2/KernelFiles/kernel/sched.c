@@ -246,7 +246,6 @@ static inline void enqueue_task(struct task_struct *p, prio_array_t *array)
         //TODO:change to p->policy == SCHED_LOTTERY
         if(array == this_rq()->active){
             p->number_tickets = MAX_PRIO - p->prio;//updating process number of tickets
-
             if(p->time_slice == 0) {
                 p->time_slice = MAX_TIMESLICE;
             }
@@ -805,8 +804,13 @@ void scheduler_tick(int user_tick, int system)
 		 * RR tasks need a special form of timeslice management.
 		 * FIFO tasks have no timeslices.
 		 */
-		if ((p->policy == SCHED_RR) && !--p->time_slice) {
+		if ((p->policy == SCHED_RR || sched_lottery.enable == ON) && !--p->time_slice) {
 			p->time_slice = TASK_TIMESLICE(p);
+
+			if(sched_lottery.enable == ON){
+				p->time_slice = MAX_TIMESLICE;
+			}
+
 			p->first_time_slice = 0;
 			set_tsk_need_resched(p);
 
@@ -827,19 +831,23 @@ void scheduler_tick(int user_tick, int system)
 	if (p->sleep_avg)
 		p->sleep_avg--;
 	if (!--p->time_slice) {
-		//TODO: inject lottery code
 		dequeue_task(p, rq->active);
 		set_tsk_need_resched(p);
 		p->prio = effective_prio(p);
 		p->first_time_slice = 0;
 		p->time_slice = TASK_TIMESLICE(p);
-
-		if (!TASK_INTERACTIVE(p) || EXPIRED_STARVING(rq)) {
-			if (!rq->expired_timestamp)
-				rq->expired_timestamp = jiffies;
-			enqueue_task(p, rq->expired);
-		} else
+		if(sched_lottery.enable == ON){
+			p->time_slice = MAX_TIMESLICE;
 			enqueue_task(p, rq->active);
+		}
+		else {
+			if (!TASK_INTERACTIVE(p) || EXPIRED_STARVING(rq)) {
+				if (!rq->expired_timestamp)
+					rq->expired_timestamp = jiffies;
+				enqueue_task(p, rq->expired);
+			} else
+				enqueue_task(p, rq->active);
+		}
 	}
 out:
 #if CONFIG_SMP
@@ -900,20 +908,24 @@ pick_next_task:
 	}
 
 	array = rq->active;
-	if (unlikely(!array->nr_active)) {
-		/*
-		 * Switch the active and expired arrays.
-		 */
-		rq->active = rq->expired;
-		rq->expired = array;
-		array = rq->active;
-		rq->expired_timestamp = 0;
+	if(sched_lottery.enable == ON){
+
 	}
+	else {
+		if (unlikely(!array->nr_active)) {
+			/*
+             * Switch the active and expired arrays.
+             */
+			rq->active = rq->expired;
+			rq->expired = array;
+			array = rq->active;
+			rq->expired_timestamp = 0;
+		}
 
-	idx = sched_find_first_bit(array->bitmap);
-	queue = array->queue + idx;
-	next = list_entry(queue->next, task_t, run_list);
-
+		idx = sched_find_first_bit(array->bitmap);
+		queue = array->queue + idx;
+		next = list_entry(queue->next, task_t, run_list);
+	}
 switch_tasks:
 	prefetch(next);
 	clear_tsk_need_resched(prev);
@@ -1438,36 +1450,43 @@ asmlinkage long sys_sched_yield(void)
 {
 	runqueue_t *rq = this_rq_lock();
 	prio_array_t *array = current->array;
-	int i;
 
+	if(array != rq->active){//TODO:remove after debug
+		printk("This PID : %d is escape from active array\n",current->pid);
+	}
+
+	int i;
 	if (unlikely(rt_task(current))) {
 		list_del(&current->run_list);
 		list_add_tail(&current->run_list, array->queue + current->prio);
 		goto out_unlock;
 	}
 
-	list_del(&current->run_list);
-	if (!list_empty(array->queue + current->prio)) {
-		list_add(&current->run_list, array->queue[current->prio].next);
-		goto out_unlock;
+	if(sched_lottery.enable == OFF) {
+		list_del(&current->run_list);
+		if (!list_empty(array->queue + current->prio)) {
+			list_add(&current->run_list, array->queue[current->prio].next);
+			goto out_unlock;
+		}
+
+		__clear_bit(current->prio, array->bitmap);
+		i = sched_find_first_bit(array->bitmap);
+
+		if (i == MAX_PRIO || i <= current->prio)
+			i = current->prio;
+		else
+			current->prio = i;
+
+		list_add(&current->run_list, array->queue[i].next);
+		__set_bit(i, array->bitmap);
 	}
-	__clear_bit(current->prio, array->bitmap);
-
-	i = sched_find_first_bit(array->bitmap);
-
-	if (i == MAX_PRIO || i <= current->prio)
-		i = current->prio;
 	else
-		current->prio = i;
-
-	list_add(&current->run_list, array->queue[i].next);
-	__set_bit(i, array->bitmap);
+		dequeue_task(current,rq->active);
+		enqueue_task(current,rq->active);
 
 out_unlock:
 	spin_unlock(&rq->lock);
-
 	schedule();
-
 	return 0;
 }
 
@@ -2001,7 +2020,7 @@ int sys_start_lottery_scheduler(void) {
         return -EINVAL;
     }
 
-    runqueue_t *lottery_rq = this_rq();
+    runqueue_t *lottery_rq = this_rq_lock();
     spin_lock_irq(&lottery_rq->lock);
 
     printk("moving processes from active to expired;\n ");
@@ -2073,7 +2092,7 @@ int sys_start_lottery_scheduler(void) {
 
     sys_set_max_tickets(sched_lottery.user_max_tickets);
     set_need_resched();
-    spin_unlock_irq(&lottery_rq->lock);
+	spin_unlock(&lottery_rq);
 
     printk("lottery_scheduler is enable\n");
 	return 0;
@@ -2091,7 +2110,7 @@ int sys_start_orig_scheduler(void){
 //           lottery_rq->expired->nr_active);
 
 
-    runqueue_t *lottery_rq = this_rq();
+    runqueue_t *lottery_rq = this_rq_lock();
     spin_lock_irq(&lottery_rq->lock);
 
     sched_lottery.enable = OFF;
@@ -2114,7 +2133,7 @@ int sys_start_orig_scheduler(void){
 
     set_need_resched();
 
-    spin_unlock_irq(&lottery_rq->lock);
+	spin_unlock(&lottery_rq);
 
     printk("lottery_scheduler is disable\n");
     return 0;
