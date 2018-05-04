@@ -242,6 +242,7 @@ static inline void enqueue_task(struct task_struct *p, prio_array_t *array)
 		if (p->time_slice == 0) {// handling edge case
 			p->time_slice = MAX_TIMESLICE;
 		}
+		p->policy = SCHED_LOTTERY;
 		printk("PID: %d has prio: %d with tickts: %d\n", p->pid, p->prio,
 			   p->number_tickets);
 		printk("number of tickets MUST to be MAX_PRIO - prio : %d\n",
@@ -523,6 +524,9 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 				if (list_entry(node_temp, task_t, run_list) != next) {
 					(logger.log_arr[index]).all_prev_tickts +=
 							list_entry(node_temp, task_t, run_list)->number_tickets;
+				}
+				else{
+					break;
 				}
 			}
 		}
@@ -2126,10 +2130,9 @@ int sys_start_lottery_scheduler(void) {
             printk("reached PID: %d \n",process->pid);
 
             dequeue_task(process, lottery_rq->expired);
-            enqueue_task(process, lottery_rq->active);
-            process->time_slice = MAX_TIMESLICE;
-            process->old_policy = process->policy;
-            process->policy = SCHED_LOTTERY;
+			process->old_policy = process->policy;
+			process->time_slice = MAX_TIMESLICE;
+			enqueue_task(process, lottery_rq->active);
         }
         printk("number of tickts in PRIO %d is: %d\n;",i, sched_lottery.tickts_per_prio[i]);
     }

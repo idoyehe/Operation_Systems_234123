@@ -10,7 +10,7 @@
 #define SCHED_RR		2
 
 #define TEST_SIZE 10000
-#define LOG_SIZE 4000
+#define LOG_SIZE 2500
 
 bool test_enable_logging() {
 	// size < 0
