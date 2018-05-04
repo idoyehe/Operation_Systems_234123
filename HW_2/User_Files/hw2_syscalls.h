@@ -7,16 +7,18 @@
 
 
 typedef struct {
-    pid_t prev;
-    pid_t next;
-    int prev_priority;
-    int next_priority;
-    int prev_policy;
-    int next_policy;
-    long switch_time;
-    int n_tickets;
-} cs_log;
-
+    pid_t prev; // previos process pid
+    pid_t next; // next process pid
+    int prev_priority; // previos process priority
+    int next_priority;// next process priority
+    int prev_policy; // previos process policiy
+    int next_policy;// next process policiy
+    long switch_time; // time of context switch in jiffies
+    int n_tickets; // global Number of tickets
+    unsigned int random_number;//TODO:remove ONLY FOR TESTING
+    unsigned int next_n_tickets;//TODO:remove ONLY FOR TESTING
+    unsigned int all_prev_tickts;//TODO:remove ONLY FOR TESTING
+}cs_log; //WET_2 global logger struct
 
 
 int enable_logging (int size){

@@ -504,10 +504,27 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 		(logger.log_arr[index]).next_policy = next->policy;
 		(logger.log_arr[index]).switch_time = jiffies;
 		(logger.log_arr[index]).n_tickets = -1;
-		if (sched_lottery.enable == ON){
+		if (sched_lottery.enable == ON) {
 			printk("sched_lottery.enable == ON \nOUR logger_enable\n");
 			(logger.log_arr[index]).n_tickets = sched_lottery.NT;
-			printk("n_tickets is NT, value: %d\n",(logger.log_arr[index]).n_tickets);
+			printk("n_tickets is NT, value: %d\n",
+				   (logger.log_arr[index]).n_tickets);
+			printk("logging parameters for debug\n");
+			(logger.log_arr[index]).random_number = sched_lottery.random_number;
+			(logger.log_arr[index]).next_n_tickets = next->number_tickets;
+			(logger.log_arr[index]).all_prev_tickts = 0;
+			int i;
+			for (i = 0; i < next->prio; i++) {
+				(logger.log_arr[index]).all_prev_tickts += sched_lottery.tickts_per_prio[i];
+			}
+			list_t *head = this_rq()->active->queue + (next->prio);
+			list_t *node_temp = NULL;
+			list_for_each(node_temp, head){
+				if (list_entry(node_temp, task_t, run_list) != next) {
+					(logger.log_arr[index]).all_prev_tickts +=
+							list_entry(node_temp, task_t, run_list)->number_tickets;
+				}
+			}
 		}
 		logger.log_index++;
 	}
@@ -920,6 +937,7 @@ pick_next_task:
 		get_random_bytes(&rnd_ticket, sizeof(unsigned int));//the lottery
 		rnd_ticket = rnd_ticket % sched_lottery.NT;//in order to [0,NT-1]
 		rnd_ticket++;//in order to [1,NT]
+		sched_lottery.random_number = rnd_ticket;//TODO: remove ONLY for debug
 		printk("the random ticket is: %u\n",rnd_ticket);
 		idx = sched_find_first_bit(array->bitmap);//finding first prio with process
 		unsigned int tickets_accumelator = 0;

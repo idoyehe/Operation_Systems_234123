@@ -16,7 +16,8 @@ lotteryW sched_lottery = {
         .processes_all_tickets = 0,
         .user_max_tickets = 0,
         .tickts_per_prio = {0},
-        .NT = 0};
+        .NT = 0,
+        .random_number = 0};
 
 
 

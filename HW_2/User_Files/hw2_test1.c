@@ -145,6 +145,7 @@ bool test_get_logger_records() {
 	ASSERT_TEST(log[1].next_policy == SCHED_FIFO);
 	ASSERT_TEST(log[0].switch_time <= log[1].switch_time);
 
+	ASSERT_TEST(disable_logging() == -1 && errno == EINVAL);
 
 	// Should result in copy_to_user failing
 	ASSERT_TEST(enable_logging(LOG_SIZE) == 0);
