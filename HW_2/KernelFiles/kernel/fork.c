@@ -716,7 +716,6 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	p->exit_signal = clone_flags & CSIGNAL;
 	p->pdeath_signal = 0;
 
-
 	/*
 	 * Share the timeslice between parent and child, thus the
 	 * total amount of pending timeslices in the system doesnt change,
@@ -730,9 +729,10 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	p->first_time_slice = 1;
 	current->time_slice >>= 1;
 
-	/*HW2 inherit father new attribute */
+	/*WET_2 inherit father new attribute BEGIN*/
 	p-> number_tickets = current->number_tickets;
 	p-> old_policy = current-> old_policy;
+	/*WET_2 inherit father new attribute END*/
 
 	p->sleep_timestamp = jiffies;
 	if (!current->time_slice) {

@@ -119,7 +119,7 @@ extern unsigned long nr_uninterruptible(void);
 #define SCHED_OTHER		0
 #define SCHED_FIFO		1
 #define SCHED_RR		2
-#define SCHED_LOTTERY	3
+#define SCHED_LOTTERY	3 // WET_2 new policy
 
 struct sched_param {
 	int sched_priority;
@@ -319,43 +319,43 @@ extern struct user_struct root_user;
 
 typedef struct prio_array prio_array_t;
 
-/*wet2 global logger*/
+/* WET_2 delerations and globals BEGIN*/
+
 typedef struct {
-	pid_t prev;
-	pid_t next;
-	int prev_priority;
-	int next_priority;
-	int prev_policy;
-	int next_policy;
-	long switch_time;
-	int n_tickets;
-}cs_log;
+	pid_t prev; // previos process pid
+	pid_t next; // next process pid
+	int prev_priority; // previos process priority
+	int next_priority;// next process priority
+	int prev_policy; // previos process policiy
+	int next_policy;// next process policiy
+	long switch_time; // time of context switch in jiffies
+	int n_tickets; // global Number of tickets
+}cs_log; //WET_2 global logger struct
 
 typedef enum {
 	ON = 0,
 	OFF = 1,
-} SWITCH;
+} SWITCH; //WET_2 switch enum
 
 typedef struct {
-	SWITCH logger_enable;
-	int log_size;
-	int log_index;
-	cs_log* log_arr;
-}loggerW;
+	SWITCH logger_enable;// logger switch enable <-> disable
+	int log_size;// size of the logger
+	int log_index;// current index to write new log
+	cs_log* log_arr;// dynamic array to save logs
+}loggerW;//WET_2 global logger wrapper struct
+
+typedef struct {
+	SWITCH enable;// scheduler lottery switch enable <-> disable
+	unsigned int processes_all_tickets;//number of all tickts processes have
+	int user_max_tickets;//limit of tickets the user set, when OS starting it is 0
+	unsigned int tickts_per_prio[MAX_PRIO]; // histogram ticket per priority
+	int NT;//Number of ticket that can be participate in the lottery
+}lotteryW;//WET_2 global scheduler lottery wrapper struct
 
 extern loggerW logger;
-
-typedef struct {
-	SWITCH enable;
-	unsigned int total_processes_tickets;
-	int user_max_tickets;
-	unsigned int prio_total_tickets[MAX_PRIO];
-	int NT;
-}lotteryW;
-
 extern lotteryW sched_lottery;
 
-/*wet2 end */
+/* WET_2 delerations and globals END*/
 
 struct task_struct {
 	/*
@@ -491,9 +491,9 @@ struct task_struct {
 /* journalling filesystem info */
 	void *journal_info;
 
-/* wet2 new attribute to task struct*/
-	unsigned int number_tickets;
-	unsigned long old_policy;
+/* WET_2 new attribute to task struct*/
+	unsigned int number_tickets;//number of tickets the process holds
+	unsigned long old_policy;//save the old policy when lottery is set ON
 };
 
 /*
@@ -602,7 +602,6 @@ extern struct exec_domain	default_exec_domain;
     number_tickets: 0,			\
 	old_policy: SCHED_OTHER, 	\
 }
-
 
 #ifndef INIT_TASK_SIZE
 # define INIT_TASK_SIZE	2048*sizeof(long)

@@ -13,9 +13,9 @@ loggerW logger = {
 /*wet2 lottery global*/
 lotteryW sched_lottery = {
         .enable = OFF,
-        .total_processes_tickets = 0,
+        .processes_all_tickets = 0,
         .user_max_tickets = 0,
-        .prio_total_tickets ={0},
+        .tickts_per_prio = {0},
         .NT = 0};
 
 
