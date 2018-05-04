@@ -514,19 +514,25 @@ static inline task_t * context_switch(task_t *prev, task_t *next)
 			(logger.log_arr[index]).random_number = sched_lottery.random_number;
 			(logger.log_arr[index]).next_n_tickets = next->number_tickets;
 			(logger.log_arr[index]).all_prev_tickts = 0;
-			int i;
-			for (i = 0; i < next->prio; i++) {
-				(logger.log_arr[index]).all_prev_tickts += sched_lottery.tickts_per_prio[i];
-			}
-			list_t *head = this_rq()->active->queue + (next->prio);
-			list_t *node_temp = NULL;
-			list_for_each(node_temp, head){
-				if (list_entry(node_temp, task_t, run_list) != next) {
-					(logger.log_arr[index]).all_prev_tickts +=
-							list_entry(node_temp, task_t, run_list)->number_tickets;
+			if (next != this_rq()->idle) {
+				int i;
+				for (i = 0; i < next->prio; i++) {
+					(logger.log_arr[index]).all_prev_tickts += sched_lottery.tickts_per_prio[i];
 				}
-				else{
-					break;
+				printk("finish to over all previous prios\n");
+				list_t *head = this_rq()->active->queue + (next->prio);
+				list_t *node_temp = NULL;
+				list_for_each(node_temp, head)
+				{
+					if (list_entry(node_temp, task_t, run_list) != next) {
+						(logger.log_arr[index]).all_prev_tickts +=
+								list_entry(node_temp, task_t,
+										   run_list)->number_tickets;
+					} else {
+						break;
+					}
+					printk("finish to over all previous processes\n");
+
 				}
 			}
 		}
