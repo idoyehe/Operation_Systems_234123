@@ -74,9 +74,7 @@ bool test_schedualer_lottery_behavior() {
 	for (j = 0; j < TEST_SIZE; ++j) {
 		child = fork();
 		if (child == 0) {
-//			srand(time(NULL));
-//			int __nice = (rand() % NICE_RANGE) - 20;//[-20,19]
-//			ASSERT_TEST(nice(__nice) == 0);
+			ASSERT_TEST(sched_yield() == 0);
 			exit(0);
 		}
 		wait(NULL);
