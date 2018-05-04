@@ -15,9 +15,6 @@ typedef struct {
     int next_policy;// next process policiy
     long switch_time; // time of context switch in jiffies
     int n_tickets; // global Number of tickets
-    unsigned int random_number;//TODO:remove ONLY FOR TESTING
-    unsigned int next_n_tickets;//TODO:remove ONLY FOR TESTING
-    unsigned int all_prev_tickts;//TODO:remove ONLY FOR TESTING
 }cs_log; //WET_2 global logger struct
 
 
