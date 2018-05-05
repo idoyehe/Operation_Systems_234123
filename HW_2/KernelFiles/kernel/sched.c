@@ -871,11 +871,17 @@ pick_next_task:
 	}
 
 	array = rq->active;
+
+
+	unsigned int random_number;//TODO:remove after debug
+	unsigned int all_prev_tickts;//TODO:remove after debug
+
 	if(sched_lottery.enable == ON){
 		unsigned int rnd_ticket;
 		get_random_bytes(&rnd_ticket, sizeof(unsigned int));//the lottery
 		rnd_ticket = rnd_ticket % sched_lottery.NT;//in order to [0,NT-1]
 		rnd_ticket++;//in order to [1,NT]
+		random_number = rnd_ticket;//TODO:remove after debug
 		idx = sched_find_first_bit(array->bitmap);//finding first prio with process
 		unsigned int tickets_accumelator = 0;
 		int prio_of_next;
@@ -894,6 +900,7 @@ pick_next_task:
 			}
 			tickets_accumelator += next->number_tickets;
 		}
+		all_prev_tickts = tickets_accumelator;
 	}
 	else {
 		if (unlikely(!array->nr_active)) {
@@ -929,6 +936,9 @@ switch_tasks:
 			(logger.log_arr[index]).prev_policy = SCHED_LOTTERY;
 			(logger.log_arr[index]).next_policy = SCHED_LOTTERY;
 			(logger.log_arr[index]).n_tickets = sched_lottery.NT;
+			(logger.log_arr[index]).random_number = random_number;
+			(logger.log_arr[index]).all_prev_tickts = all_prev_tickts;
+			(logger.log_arr[index]).next_n_tickets = next->number_tickets;
 		}
 		logger.log_index++;
 	}
