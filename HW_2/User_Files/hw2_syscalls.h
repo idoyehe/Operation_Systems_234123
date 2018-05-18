@@ -7,16 +7,15 @@
 
 
 typedef struct {
-    pid_t prev;
-    pid_t next;
-    int prev_priority;
-    int next_priority;
-    int prev_policy;
-    int next_policy;
-    long switch_time;
-    int n_tickets;
-} cs_log;
-
+    pid_t prev; // previous process pid
+    pid_t next; // next process pid
+    int prev_priority; // previous process priority
+    int next_priority;// next process priority
+    int prev_policy; // previous process policy
+    int next_policy;// next process policy
+    long switch_time; // time of context switch in jiffies
+    int n_tickets; // global Number of tickets
+}cs_log; //WET_2 global logger struct
 
 
 int enable_logging (int size){

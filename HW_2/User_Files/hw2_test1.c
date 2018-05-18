@@ -9,7 +9,7 @@
 #define SCHED_FIFO		1
 #define SCHED_RR		2
 
-#define TEST_SIZE 10000
+#define TEST_SIZE 1000
 #define LOG_SIZE 4000
 
 bool test_enable_logging() {
@@ -61,7 +61,7 @@ bool test_get_logger_records() {
 	ASSERT_TEST(get_logger_records(log) == 0);
 
 	// simple success
-	ASSERT_TEST(enable_logging(2) == 0);
+	ASSERT_TEST(enable_logging(3) == 0);
 
 	first_child_pid = fork();
 	sched_setscheduler(first_child_pid, SCHED_FIFO, &param);
@@ -69,24 +69,31 @@ bool test_get_logger_records() {
 	wait(NULL);
 
 	ASSERT_TEST(disable_logging() == 0);
-	ASSERT_TEST(get_logger_records(log) == 2);
+	ASSERT_TEST(get_logger_records(log) == 3);
 	ASSERT_TEST(log[0].prev == parent_pid);
-	ASSERT_TEST(log[0].next == first_child_pid);
+	ASSERT_TEST(log[0].next == parent_pid);
 	ASSERT_TEST(log[0].prev_priority == 79);
-	ASSERT_TEST(log[0].next_priority == 69);
+	ASSERT_TEST(log[0].next_priority == 79);
 	ASSERT_TEST(log[0].prev_policy == SCHED_FIFO);
 	ASSERT_TEST(log[0].next_policy == SCHED_FIFO);
-	ASSERT_TEST(log[1].prev == first_child_pid);
-	ASSERT_TEST(log[1].next == parent_pid);
-	ASSERT_TEST(log[1].prev_priority == 69);
-	ASSERT_TEST(log[1].next_priority == 79);
+	ASSERT_TEST(log[1].prev == parent_pid);
+	ASSERT_TEST(log[1].next == first_child_pid);
+	ASSERT_TEST(log[1].prev_priority == 79);
+	ASSERT_TEST(log[1].next_priority == 69);
 	ASSERT_TEST(log[1].prev_policy == SCHED_FIFO);
 	ASSERT_TEST(log[1].next_policy == SCHED_FIFO);
+	ASSERT_TEST(log[2].prev == first_child_pid);
+	ASSERT_TEST(log[2].next == parent_pid);
+	ASSERT_TEST(log[2].prev_priority == 69);
+	ASSERT_TEST(log[2].next_priority == 79);
+	ASSERT_TEST(log[2].prev_policy == SCHED_FIFO);
+	ASSERT_TEST(log[2].next_policy == SCHED_FIFO);
 	ASSERT_TEST(log[0].switch_time <= log[1].switch_time);
+	ASSERT_TEST(log[1].switch_time <= log[2].switch_time);
 
-	// success of size 1 after size 2 - log[1] should remain the same
+	// success of size 2 after size 3
 	param.sched_priority = 40;
-	ASSERT_TEST(enable_logging(1) == 0);
+	ASSERT_TEST(enable_logging(2) == 0);
 
 	second_child_pid = fork();
 	sched_setscheduler(second_child_pid, SCHED_RR, &param);
@@ -94,20 +101,30 @@ bool test_get_logger_records() {
 	wait(NULL);
 
 	ASSERT_TEST(disable_logging() == 0);
-	ASSERT_TEST(get_logger_records(log) == 1);
+	ASSERT_TEST(get_logger_records(log) == 2);
 	ASSERT_TEST(log[0].prev == parent_pid);
-	ASSERT_TEST(log[0].next == second_child_pid);
+	ASSERT_TEST(log[0].next == parent_pid);
 	ASSERT_TEST(log[0].prev_priority == 79);
-	ASSERT_TEST(log[0].next_priority == 59);
+	ASSERT_TEST(log[0].next_priority == 79);
 	ASSERT_TEST(log[0].prev_policy == SCHED_FIFO);
-	ASSERT_TEST(log[0].next_policy == SCHED_RR);
-	ASSERT_TEST(log[1].prev == first_child_pid);
-	ASSERT_TEST(log[1].next == parent_pid);
-	ASSERT_TEST(log[1].prev_priority == 69);
-	ASSERT_TEST(log[1].next_priority == 79);
+	ASSERT_TEST(log[0].next_policy == SCHED_FIFO);
+	ASSERT_TEST(log[1].prev == parent_pid);
+	ASSERT_TEST(log[1].next == second_child_pid);
+	ASSERT_TEST(log[1].prev_priority == 79);
+	ASSERT_TEST(log[1].next_priority == 59);
 	ASSERT_TEST(log[1].prev_policy == SCHED_FIFO);
-	ASSERT_TEST(log[1].next_policy == SCHED_FIFO);
-	ASSERT_TEST(log[1].switch_time <= log[0].switch_time);
+	ASSERT_TEST(log[1].next_policy == SCHED_RR);
+	ASSERT_TEST(log[0].switch_time <= log[1].switch_time);
+
+	// if you don't pass this section, don't worry.
+	ASSERT_TEST(log[2].prev == first_child_pid);
+	ASSERT_TEST(log[2].next == parent_pid);
+	ASSERT_TEST(log[2].prev_priority == 69);
+	ASSERT_TEST(log[2].next_priority == 79);
+	ASSERT_TEST(log[2].prev_policy == SCHED_FIFO);
+	ASSERT_TEST(log[2].next_policy == SCHED_FIFO);
+	ASSERT_TEST(log[2].switch_time <= log[0].switch_time);
+	// section ends here
 
 	// NULL user_mem, when enable is of size 0
 	ASSERT_TEST(enable_logging(0) == 0);
@@ -116,7 +133,7 @@ bool test_get_logger_records() {
 
 	// NULL user_mem - failure -> success
 	param.sched_priority = 30;
-	ASSERT_TEST(enable_logging(2) == 0);
+	ASSERT_TEST(enable_logging(3) == 0);
 
 	first_child_pid = fork();
 	if (first_child_pid == 0) exit(0);
@@ -130,20 +147,26 @@ bool test_get_logger_records() {
 	wait(NULL);
 
 	ASSERT_TEST(disable_logging() == 0);
-	ASSERT_TEST(get_logger_records(log) == 2);
+	ASSERT_TEST(get_logger_records(log) == 3);
 	ASSERT_TEST(log[0].prev == parent_pid);
-	ASSERT_TEST(log[0].next == second_child_pid);
+	ASSERT_TEST(log[0].next == parent_pid);
 	ASSERT_TEST(log[0].prev_priority == 79);
-	ASSERT_TEST(log[0].next_priority == 69);
+	ASSERT_TEST(log[0].next_priority == 79);
 	ASSERT_TEST(log[0].prev_policy == SCHED_FIFO);
 	ASSERT_TEST(log[0].next_policy == SCHED_FIFO);
-	ASSERT_TEST(log[1].prev == second_child_pid);
-	ASSERT_TEST(log[1].next == parent_pid);
-	ASSERT_TEST(log[1].prev_priority == 69);
-	ASSERT_TEST(log[1].next_priority == 79);
+	ASSERT_TEST(log[1].prev == parent_pid);
+	ASSERT_TEST(log[1].next == second_child_pid);
+	ASSERT_TEST(log[1].prev_priority == 79);
+	ASSERT_TEST(log[1].next_priority == 69);
 	ASSERT_TEST(log[1].prev_policy == SCHED_FIFO);
 	ASSERT_TEST(log[1].next_policy == SCHED_FIFO);
-	ASSERT_TEST(log[0].switch_time <= log[1].switch_time);
+	ASSERT_TEST(log[2].prev == second_child_pid);
+	ASSERT_TEST(log[2].next == parent_pid);
+	ASSERT_TEST(log[2].prev_priority == 69);
+	ASSERT_TEST(log[2].next_priority == 79);
+	ASSERT_TEST(log[2].prev_policy == SCHED_FIFO);
+	ASSERT_TEST(log[2].next_policy == SCHED_FIFO);
+	ASSERT_TEST(log[1].switch_time <= log[2].switch_time);
 
 
 	// Should result in copy_to_user failing
@@ -157,7 +180,7 @@ bool test_get_logger_records() {
 	ASSERT_TEST(disable_logging() == 0);
 	ASSERT_TEST(get_logger_records(log) == -1 && errno == ENOMEM);
 
-	// Should work, because last call frees erases the log
+	// Should work, because last call erases the log
 	ASSERT_TEST(get_logger_records(log) == 0);
 
 	return true;
@@ -174,7 +197,7 @@ bool enable_disable_stress_test() {
 			fflush(stdout);
 		}
 
-			// in case of memory leaks, enable_policy will eventually fail, or the kernel will freeze/crash
+		// in case of memory leaks, enable_policy will eventually fail, or the kernel will freeze/crash
 		if (enable_logging(LOG_SIZE) != 0) exit(-1);
 
 		// add entries to log
@@ -190,6 +213,7 @@ bool enable_disable_stress_test() {
 
 		if (disable_logging() != 0) exit(-1);
 	}
+	printf("\n");
 	return true;
 }
 
