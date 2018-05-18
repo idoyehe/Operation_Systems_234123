@@ -322,14 +322,14 @@ typedef struct prio_array prio_array_t;
 /* WET_2 delerations and globals BEGIN*/
 
 typedef struct {
-	pid_t prev; // previos process pid
-	pid_t next; // next process pid
-	int prev_priority; // previos process priority
-	int next_priority;// next process priority
-	int prev_policy; // previos process policiy
-	int next_policy;// next process policiy
-	long switch_time; // time of context switch in jiffies
-	int n_tickets; // global Number of tickets
+    pid_t prev; // previous process pid
+    pid_t next; // next process pid
+    int prev_priority; // previous process priority
+    int next_priority;// next process priority
+    int prev_policy; // previous process policy
+    int next_policy;// next process policy
+    long switch_time; // time of context switch in jiffies
+    int n_tickets; // global Number of tickets
 }cs_log; //WET_2 global logger struct
 
 typedef enum {
@@ -493,7 +493,6 @@ struct task_struct {
 
 /* WET_2 new attribute to task struct*/
 	unsigned int number_tickets;//number of tickets the process holds
-	unsigned long old_policy;//save the old policy when lottery is set ON
 };
 
 /*
@@ -600,7 +599,6 @@ extern struct exec_domain	default_exec_domain;
     alloc_lock:		SPIN_LOCK_UNLOCKED,				\
     journal_info:	NULL,						\
     number_tickets: 0,			\
-	old_policy: SCHED_OTHER, 	\
 }
 
 #ifndef INIT_TASK_SIZE

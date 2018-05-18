@@ -7,12 +7,12 @@
 
 
 typedef struct {
-    pid_t prev; // previos process pid
+    pid_t prev; // previous process pid
     pid_t next; // next process pid
-    int prev_priority; // previos process priority
+    int prev_priority; // previous process priority
     int next_priority;// next process priority
-    int prev_policy; // previos process policiy
-    int next_policy;// next process policiy
+    int prev_policy; // previous process policy
+    int next_policy;// next process policy
     long switch_time; // time of context switch in jiffies
     int n_tickets; // global Number of tickets
 }cs_log; //WET_2 global logger struct

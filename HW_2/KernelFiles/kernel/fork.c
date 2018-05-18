@@ -731,7 +731,6 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 
 	/*WET_2 inherit father new attribute BEGIN*/
 	p-> number_tickets = current->number_tickets;
-	p-> old_policy = current-> old_policy;
 	/*WET_2 inherit father new attribute END*/
 
 	p->sleep_timestamp = jiffies;
