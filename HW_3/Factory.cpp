@@ -430,7 +430,7 @@ void Factory::write_unlock() {
 }
 
 void Factory::insertToMap(int id, pthread_t p) {
-    this->_id2threadMAP.insert(std::pair(id,p));
+    this->_id2threadMAP.insert(std::pair<int,pthread_t>(id,p));
 }
 
 void Factory::removeFromMap(int id){
