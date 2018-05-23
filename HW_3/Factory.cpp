@@ -1,5 +1,6 @@
 #include "Factory.h"
 #include <assert.h>
+#include <iostream>
 
 #define NO_INIT -1
 
@@ -25,6 +26,13 @@ void print_unlock() {//TODO: delete after debug
     pthread_mutex_unlock(&mutex_printer);//TODO: delete after debug
 }//TODO: delete after debug
 
+void safePrint(const char * str){
+    print_lock();
+    std::cout << "\n-------------------------\n";
+    std::cout << str;
+    std::cout << "\n-------------------------\n";
+    print_unlock();
+}
 
 typedef struct {
     Factory* factory_pointer;
