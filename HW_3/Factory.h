@@ -6,6 +6,41 @@
 #include "Product.h"
 
 class Factory{
+    std::list<std::pair<Product, int>> listStolenProducts;
+    std::list<Product> listAvailableProducts;
+    pthread_cond_t cond_factory_produce;
+
+    bool is_open;
+    bool is_return;
+
+    int number_of_writers;
+    int number_of_readers;
+    pthread_cond_t cond_read;
+    pthread_cond_t cond_write_factory_open;
+    pthread_cond_t cond_write_globals;
+    pthread_mutex_t mutex_read_write;
+
+    int thief_counter;
+    pthread_cond_t cond_thief;
+    int company_counter;
+    pthread_cond_t cond_company;
+    int costumer_counter;
+    pthread_cond_t cond_costumer;
+
+
+    void read_Lock();
+    void read_Unlock();
+    void write_lock_thieves();
+    void write_lock_company(int num_products);
+    void write_lock_factory_produce();
+    void write_unlock();
+    void* produceWrapper(void* args);
+    void *thiefWrapper(void *args);
+    void *companyThreadWrapper(void *args);
+
+
+
+
 public:
     Factory();
     ~Factory();
@@ -35,6 +70,5 @@ public:
     
     std::list<std::pair<Product, int>> listStolenProducts();
     std::list<Product> listAvailableProducts();
-
 };
 #endif // FACTORY_H_
