@@ -65,7 +65,9 @@ static void* produceThreadWrapper(void *args) {
     buffer->factory_pointer->insertToMap(buffer->id,pthread_self());
     buffer->factory_pointer->write_unlock_map();
 
+    safePrint("produce updated map");//TODO: delete after debug
     buffer->factory_pointer->produce(buffer->num_products,buffer->product_arr);
+    safePrint("produce Done");//TODO: delete after debug
     pthread_exit(NULL);
 }
 
@@ -75,8 +77,13 @@ void *thiefThreadWrapper(void * args) {
     buffer->factory_pointer->write_lock_map();
     buffer->factory_pointer->insertToMap(buffer->fake_id,pthread_self());
     buffer->factory_pointer->write_unlock_map();
+
+    safePrint("thief updated map");//TODO: delete after debug
+
     int *number_of_stolen = new int;
     *number_of_stolen = buffer->factory_pointer->stealProducts(buffer->num_products,buffer->fake_id);
+    safePrint("thief Done");//TODO: delete after debug
+
     pthread_exit(number_of_stolen);
 }
 
@@ -158,11 +165,13 @@ void Factory::startProduction(int num_products, Product* products,unsigned int i
     assert(num_products >0);
     assert(products != nullptr);
     pthread_t p;
-    Buffer buffer;
-    bufferInit(&buffer);
-    buffer.factory_pointer = this;
-    buffer.num_products = num_products;
-    pthread_create(&p, NULL, produceThreadWrapper, &buffer);
+    Buffer *buffer = (Buffer*) malloc(sizeof(Buffer));
+    bufferInit(buffer);
+    buffer->factory_pointer = this;
+    buffer->num_products = num_products;
+    buffer->product_arr = products;
+    buffer->id = id;
+    pthread_create(&p, NULL, produceThreadWrapper, buffer);
 }
 
 void Factory::produce(int num_products, Product* products){
@@ -265,13 +274,13 @@ int Factory::finishCompanyBuyer(unsigned int id){
 
 void Factory::startThief(int num_products,unsigned int fake_id){
     assert(num_products > 0);
-    Buffer buffer;
-    bufferInit(&buffer);
-    buffer.factory_pointer = this;
-    buffer.num_products = num_products;
-    buffer.fake_id = fake_id;
+    Buffer *buffer = (Buffer*) malloc(sizeof(Buffer));
+    bufferInit(buffer);
+    buffer->factory_pointer = this;
+    buffer->num_products = num_products;
+    buffer->fake_id = fake_id;
     pthread_t p;
-    pthread_create(&p,NULL,thiefThreadWrapper,&buffer);
+    pthread_create(&p,NULL,thiefThreadWrapper,buffer);
 }
 
 int Factory::stealProducts(int num_products,unsigned int fake_id){
