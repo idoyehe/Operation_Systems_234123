@@ -263,10 +263,10 @@ int Factory::finishCompanyBuyer(unsigned int id){
     pthread_t p = this->getThreadIDMap(id);
     this->removeFromMap(id);
     write_unlock_map();
-    void **buffer;
-    pthread_join(p,buffer);
+    void *buffer;
+    pthread_join(p,&buffer);
     assert(buffer != NULL);
-    int* num_returned = (int*)(*buffer);
+    int* num_returned = (int*)(buffer);
     int number_of_returns = *num_returned;
     delete num_returned;
     return number_of_returns;
@@ -302,10 +302,10 @@ int Factory::finishThief(unsigned int fake_id){
     pthread_t p = this->getThreadIDMap(fake_id);
     this->removeFromMap(fake_id);
     write_unlock_map();
-    void **buffer;
-    pthread_join(p,buffer);
+    void *buffer;
+    pthread_join(p,&buffer);
     assert(buffer != NULL);
-    int* num_stolen = (int*)(*buffer);
+    int* num_stolen = (int*)(buffer);
     int number_of_stolen = *num_stolen;
     delete num_stolen;
     return number_of_stolen;

@@ -10,8 +10,14 @@ int main(){
     products[2] = Product(3,30);
 
     factory.startProduction(3,products,47);
-    factory.startThief(4,48);
-    sleep(60);
+    sleep(3);
+    factory.finishProduction(47);
+    sleep(3);
+    factory.startThief(2,48);
+    sleep(3);
+    factory.finishThief(48);
+
+    sleep(10);
 
     return 0;
 }
