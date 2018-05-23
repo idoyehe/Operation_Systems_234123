@@ -24,19 +24,18 @@ class Factory{
     pthread_cond_t cond_thief;
     int company_counter;
     pthread_cond_t cond_company;
-    int costumer_counter;
+    int buyer_counter;
     pthread_cond_t cond_costumer;
 
 
     void read_Lock();
     void read_Unlock();
+
+    void write_lock_factory_produce();
     void write_lock_thieves();
     void write_lock_company(int num_products);
-    void write_lock_factory_produce();
+    void write_lock_single_buyer();
     void write_unlock();
-    void* produceWrapper(void* args);
-    void *thiefWrapper(void *args);
-    void *companyThreadWrapper(void *args);
 
 
 

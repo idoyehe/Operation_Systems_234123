@@ -1,7 +1,64 @@
 #include "Factory.h"
 #include <assert.h>
 
-#define RETURN_PRODUCTS_VALUE -1
+#define NO_INIT -1
+
+typedef struct {
+    Factory* factory_pointer;
+    void* stl_pointer;
+    Product* product_arr;
+    int num_products;
+    int id;
+    int fake_id;
+    int min_value;
+}Buffer;
+
+void bufferInit(Buffer* buffer){
+    if(buffer == NULL){
+        return;
+    }
+    buffer->factory_pointer = NULL;
+    buffer->stl_pointer = NULL;
+    buffer->product_arr = NULL;
+    buffer->fake_id = NO_INIT;
+    buffer->id = NO_INIT;
+    buffer->num_products = NO_INIT;
+    buffer->min_value = NO_INIT;
+
+}
+
+static void* produceThreadWrapper(void *args) {
+    Buffer* buffer = (Buffer*)args;
+    buffer->factory_pointer->produce(buffer->num_products,buffer->product_arr);
+    pthread_exit(NULL);
+}
+
+void *companyThreadWrapper(void * args) {
+    Buffer* buffer = (Buffer*)args;
+    std::list<Product> company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
+    std::list<Product> returned_products;
+    for(std::list<Product>::iterator it = company_products.begin(), end = company_products.end(); it != end; ++it){
+        if((*it).getValue() < buffer->min_value){
+            returned_products.push_back((*it));
+        }
+    }
+    buffer->factory_pointer->returnProducts(returned_products,buffer->id);
+    pthread_exit(NULL);
+}
+
+void *thiefThreadWrapper(void * args) {
+    Buffer* buffer = (Buffer*)args;
+    buffer->factory_pointer->stealProducts(buffer->num_products,buffer->fake_id);
+    pthread_exit(NULL);
+}
+
+void *buyerThreadWrapper(void * args) {
+    Buffer* buffer = (Buffer*)args;
+    buffer->factory_pointer->tryBuyOne();
+    pthread_exit(NULL);
+}
+
+
 
 Factory::Factory(){
     this->is_open = true;
@@ -22,24 +79,19 @@ Factory::Factory(){
     this->company_counter = 0;
     pthread_cond_init(&(this->cond_company),NULL);
 
-    this->costumer_counter = 0;
+    this->buyer_counter = 0;
     pthread_cond_init(&(this->cond_costumer),NULL);
 
 }
 
 Factory::~Factory(){
-
     pthread_cond_destroy(&(this->cond_read));
     pthread_cond_destroy(&(this->cond_write_factory_open));
     pthread_cond_destroy(&(this->cond_write_globals));
     pthread_mutex_destroy(&(this->mutex_read_write));
-
     pthread_cond_destroy(&(this->cond_thief));
-
     pthread_cond_destroy(&(this->cond_company));
-
     pthread_cond_destroy(&(this->cond_costumer));
-
 
 }
 
@@ -47,25 +99,11 @@ void Factory::startProduction(int num_products, Product* products,unsigned int i
     assert(num_products >0);
     assert(products != nullptr);
     pthread_t p;
-    std::list<Product> new_products;
-    for(int i = 0; i < num_products; i++){
-        new_products.push_back(products[i]);
-    }
-    pthread_create(&p,NULL,(Factory::produceWrapper),(void*)&new_products);
-}
-
-void* Factory::produceWrapper(void * products) {
-    std::list<Product>* new_products;
-    new_products = (std::list<Product>*)products;
-    int num_products = (int) new_products->size();
-    Product* product_array = new Product[num_products];
-    int i=0;
-    for(std::list<Product>::iterator it = new_products->begin(), end = new_products->end(); it != end; ++it){
-        product_array[i++] = *it;
-    }
-    produce(num_products,product_array);
-    delete[](product_array);
-    pthread_exit(NULL);
+    Buffer buffer;
+    bufferInit(&buffer);
+    buffer.factory_pointer = this;
+    buffer.num_products = num_products;
+    pthread_create(&p, NULL, produceThreadWrapper, &buffer);
 }
 
 void Factory::produce(int num_products, Product* products){
@@ -80,10 +118,22 @@ void Factory::finishProduction(unsigned int id){
 }
 
 void Factory::startSimpleBuyer(unsigned int id){
+    pthread_t p;
+    Buffer buffer;
+    bufferInit(&buffer);
+    buffer.factory_pointer = this;
+    buffer.id = id;
 }
 
 int Factory::tryBuyOne(){
-    return -1;
+    write_lock_single_buyer();
+    if(this->_listAvailableProducts.empty()){
+        return -1;
+    }
+    int product_id = this->_listAvailableProducts.front().getId();
+    this->_listAvailableProducts.pop_front();
+    write_unlock();
+    return product_id;
 }
 
 int Factory::finishSimpleBuyer(unsigned int id){
@@ -92,30 +142,15 @@ int Factory::finishSimpleBuyer(unsigned int id){
 
 void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id){
     assert(num_products > 0);
-    int args[3] = {num_products,min_value,(int)id};
     pthread_t p;
-    pthread_create(&p,NULL,this->companyThreadWrapper,(void*)args);
-
+    Buffer buffer;
+    bufferInit(&buffer);
+    buffer.factory_pointer = this;
+    buffer.num_products = num_products;
+    buffer.min_value = min_value;
+    buffer.id = id;
+    pthread_create(&p,NULL,companyThreadWrapper,&buffer);
 }
-
-void *Factory::companyThreadWrapper(void * args) {
-    int* integer_args =(int*)args;
-    int num_products = integer_args[0];
-    int min_value = integer_args[1];
-    unsigned int id = (unsigned)integer_args[2];
-    std::list<Product> company_products = buyProducts(num_products);
-    std::list<Product> returned_products;
-    for(std::list<Product>::iterator it = company_products.begin(), end = company_products.end(); it != end; ++it){
-        if((*it).getValue() < min_value){
-            returned_products.push_back((*it));
-        }
-    }
-    returnProducts(returned_products,id);
-    pthread_exit(NULL);
-
-}
-
-
 
 std::list<Product> Factory::buyProducts(int num_products){
     write_lock_company(num_products);
@@ -132,7 +167,7 @@ std::list<Product> Factory::buyProducts(int num_products){
 }
 
 void Factory::returnProducts(std::list<Product> products,unsigned int id){
-    write_lock_company(RETURN_PRODUCTS_VALUE);// sending negative number to remove dependency in num_product
+    write_lock_company(NO_INIT);// sending negative number to remove dependency in num_product
     for(std::list<Product>::iterator it = products.begin(), end = products.end(); it != end; ++it){
         this->_listAvailableProducts.push_back(*it);
     }
@@ -145,15 +180,13 @@ int Factory::finishCompanyBuyer(unsigned int id){
 
 void Factory::startThief(int num_products,unsigned int fake_id){
     assert(num_products > 0);
-    int args[2] = {num_products,(int)fake_id};
+    Buffer buffer;
+    bufferInit(&buffer);
+    buffer.factory_pointer = this;
+    buffer.num_products = num_products;
+    buffer.fake_id = fake_id;
     pthread_t p;
-    pthread_create(&p,NULL,this->thiefWrapper,(void*)args);
-}
-
-void *Factory::thiefWrapper(void * args) {
-    int* integer_args =(int*)args;
-    stealProducts(integer_args[0],(unsigned)integer_args[1]);
-    pthread_exit(NULL);
+    pthread_create(&p,NULL,thiefThreadWrapper,&buffer);
 }
 
 int Factory::stealProducts(int num_products,unsigned int fake_id){
@@ -247,6 +280,17 @@ void Factory::write_lock_company(int num_products) {
     pthread_mutex_unlock(&(this->mutex_read_write));
 }
 
+void Factory::write_lock_single_buyer() {
+    pthread_mutex_lock(&(this->mutex_read_write));
+    while(this->number_of_writers > 0 || this->number_of_readers > 0){
+        this->buyer_counter++;
+        pthread_cond_wait(&(this->cond_costumer),&(this->mutex_read_write));
+        this->buyer_counter--;
+    }
+    this->number_of_writers++;
+    pthread_mutex_unlock(&(this->mutex_read_write));
+}
+
 void Factory::write_lock_factory_produce() {
     pthread_mutex_lock(&(this->mutex_read_write));
     while(this->number_of_writers > 0 || this->number_of_readers > 0){
@@ -268,8 +312,17 @@ void Factory::write_unlock() {
                 pthread_mutex_unlock(&(this->mutex_read_write));
                 return;
             }
+            if(this->company_counter > 0){
+                pthread_cond_signal(&(this->cond_company));
+                pthread_mutex_unlock(&(this->mutex_read_write));
+                return;
+            }
+            if(this->buyer_counter > 0){
+                pthread_cond_signal(&(this->cond_costumer));
+                pthread_mutex_unlock(&(this->mutex_read_write));
+                return;
+            }
         }
     }
+    pthread_mutex_unlock(&(this->mutex_read_write));
 }
-
-

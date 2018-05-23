@@ -8,14 +8,14 @@
 #include "test_utilities.h"
 
 #define LOG_SIZE 2500
-#define LENGTH 120
+#define LENGTH 30
 #define SCHED_OTHER		0
 #define SCHED_FIFO		1
 #define SCHED_RR		2
 #define SCHED_LOTTERY	3 // WET_2 new policy
 
 
-#define USER_LIMIT 40
+#define USER_LIMIT 60
 #define USER_LIMIT_ON 1
 
 #define MAX_TICKETS ((USER_LIMIT)*(USER_LIMIT_ON))
