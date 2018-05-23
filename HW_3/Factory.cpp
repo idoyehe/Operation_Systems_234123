@@ -51,10 +51,10 @@ void Factory::startProduction(int num_products, Product* products,unsigned int i
     for(int i = 0; i < num_products; i++){
         new_products.push_back(products[i]);
     }
-    pthread_create(&p,NULL,this->produceWrapper,(void*)&new_products);
+    pthread_create(&p,NULL,(Factory::produceWrapper),(void*)&new_products);
 }
 
-void *Factory::produceWrapper(void * products) {
+void* Factory::produceWrapper(void * products) {
     std::list<Product>* new_products;
     new_products = (std::list<Product>*)products;
     int num_products = (int) new_products->size();
@@ -71,7 +71,7 @@ void *Factory::produceWrapper(void * products) {
 void Factory::produce(int num_products, Product* products){
     write_lock_factory_produce();
     for(int i = 0; i < num_products; i++){
-        this->listAvailableProducts.push_back(products[i]);
+        this->_listAvailableProducts.push_back(products[i]);
     }
     write_unlock();
 }
@@ -92,7 +92,7 @@ int Factory::finishSimpleBuyer(unsigned int id){
 
 void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id){
     assert(num_products > 0);
-    int args[3] = {num_products,min_value,id};
+    int args[3] = {num_products,min_value,(int)id};
     pthread_t p;
     pthread_create(&p,NULL,this->companyThreadWrapper,(void*)args);
 
@@ -119,13 +119,13 @@ void *Factory::companyThreadWrapper(void * args) {
 
 std::list<Product> Factory::buyProducts(int num_products){
     write_lock_company(num_products);
-    assert(num_products <= listAvailableProducts.size());
-    std::list<Product>::iterator it = this->listAvailableProducts.begin();
+    assert(num_products <= _listAvailableProducts.size());
+    std::list<Product>::iterator it = this->_listAvailableProducts.begin();
     std::list<Product> company_products;
     for(int i = 0; i < num_products ; i++){
         company_products.push_back(*(it));
-        this->listAvailableProducts.pop_front();
-        it = this->listAvailableProducts.begin();
+        this->_listAvailableProducts.pop_front();
+        it = this->_listAvailableProducts.begin();
     }
     write_unlock();
     return company_products;
@@ -134,7 +134,7 @@ std::list<Product> Factory::buyProducts(int num_products){
 void Factory::returnProducts(std::list<Product> products,unsigned int id){
     write_lock_company(RETURN_PRODUCTS_VALUE);// sending negative number to remove dependency in num_product
     for(std::list<Product>::iterator it = products.begin(), end = products.end(); it != end; ++it){
-        this->listAvailableProducts.push_back(*it);
+        this->_listAvailableProducts.push_back(*it);
     }
     write_unlock();
 }
@@ -145,7 +145,7 @@ int Factory::finishCompanyBuyer(unsigned int id){
 
 void Factory::startThief(int num_products,unsigned int fake_id){
     assert(num_products > 0);
-    int args[2] = {num_products,fake_id};
+    int args[2] = {num_products,(int)fake_id};
     pthread_t p;
     pthread_create(&p,NULL,this->thiefWrapper,(void*)args);
 }
@@ -158,13 +158,13 @@ void *Factory::thiefWrapper(void * args) {
 
 int Factory::stealProducts(int num_products,unsigned int fake_id){
     this->write_lock_thieves();
-    int list_size =(int)this->listAvailableProducts.size();
+    int list_size =(int)this->_listAvailableProducts.size();
     int min = (num_products > list_size) ? list_size : num_products;
-    std::list<Product>::iterator it = this->listAvailableProducts.begin();
+    std::list<Product>::iterator it = this->_listAvailableProducts.begin();
     for(int i = 0; i < min ; i++){
-        this->listStolenProducts.push_back(std::pair<Product,int>(*(it),fake_id));
-        this->listAvailableProducts.pop_front();
-        it = this->listAvailableProducts.begin();
+        this->_listStolenProducts.push_back(std::pair<Product,int>(*(it),fake_id));
+        this->_listAvailableProducts.pop_front();
+        it = this->_listAvailableProducts.begin();
     }
     this->write_unlock();
     return min;
@@ -192,14 +192,14 @@ void Factory::openReturningService(){
 
 std::list<std::pair<Product, int>> Factory::listStolenProducts(){
     read_Lock();
-    std::list<std::pair<Product, int>> copy = this->listStolenProducts;
+    std::list<std::pair<Product, int>> copy = this->_listStolenProducts;
     read_Unlock();
     return copy;
 }
 
 std::list<Product> Factory::listAvailableProducts(){
     read_Lock();
-    std::list<Product> copy = this->listAvailableProducts;
+    std::list<Product> copy = this->_listAvailableProducts;
     read_Unlock();
     return copy;
 }
@@ -238,7 +238,7 @@ void Factory::write_lock_thieves() {
 
 void Factory::write_lock_company(int num_products) {
     pthread_mutex_lock(&(this->mutex_read_write));
-    while(this->number_of_writers > 0 || this->number_of_readers > 0|| num_products > this->listAvailableProducts.size()){
+    while(this->number_of_writers > 0 || this->number_of_readers > 0|| num_products > this->_listAvailableProducts.size()){
         this->company_counter++;
         pthread_cond_wait(&(this->cond_company),&(this->mutex_read_write));
         this->company_counter--;

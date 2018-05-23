@@ -6,8 +6,8 @@
 #include "Product.h"
 
 class Factory{
-    std::list<std::pair<Product, int>> listStolenProducts;
-    std::list<Product> listAvailableProducts;
+    std::list<std::pair<Product, int>> _listStolenProducts;
+    std::list<Product> _listAvailableProducts;
     pthread_cond_t cond_factory_produce;
 
     bool is_open;
