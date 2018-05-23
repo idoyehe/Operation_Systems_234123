@@ -361,34 +361,34 @@ void Factory::read_Unlock() {
 
 void Factory::write_lock_thieves() {
     pthread_mutex_lock(&(this->mutex_general_factory));
+    this->waiting_thieves_counter++;
     while(!this->is_open||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
-        this->waiting_thieves_counter++;
         pthread_cond_wait(&(this->cond_thief),&(this->mutex_general_factory));
-        this->waiting_thieves_counter--;
     }
+    this->waiting_thieves_counter--;
     this->number_of_resource_writers++;
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 void Factory::write_lock_company(int num_products,bool is_returned) {
     pthread_mutex_lock(&(this->mutex_general_factory));
+    this->waiting_companies_counter++;
     while(!this->is_open || this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0
           || num_products > this->_listAvailableProducts.size() || !is_returned){
-        this->waiting_companies_counter++;
         pthread_cond_wait(&(this->cond_company),&(this->mutex_general_factory));
-        this->waiting_companies_counter--;
     }
+    this->waiting_companies_counter--;
     this->number_of_resource_writers++;
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 void Factory::write_lock_single_buyer() {
     pthread_mutex_lock(&(this->mutex_general_factory));
+    this->waiting_buyers_counter++;
     while(!this->is_open || this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
-        this->waiting_buyers_counter++;
         pthread_cond_wait(&(this->cond_costumer),&(this->mutex_general_factory));
-        this->waiting_buyers_counter--;
     }
+    this->waiting_buyers_counter--;
     this->number_of_resource_writers++;
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
