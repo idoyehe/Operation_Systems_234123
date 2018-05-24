@@ -34,7 +34,8 @@ void safePrint(const char * str){
     print_unlock();
 }
 
-typedef struct {
+class Buffer {
+    public:
     Factory* factory_pointer;
     void* stl_pointer;
     Product* product_arr;
@@ -42,21 +43,17 @@ typedef struct {
     int id;
     int fake_id;
     int min_value;
-}Buffer;
 
-void bufferInit(Buffer* buffer){
-    if(buffer == NULL){
-        return;
+    Buffer(){
+        buffer->factory_pointer = NULL;
+        buffer->stl_pointer = NULL;
+        buffer->product_arr = NULL;
+        buffer->fake_id = NO_INIT;
+        buffer->id = NO_INIT;
+        buffer->num_products = NO_INIT;
+        buffer->min_value = NO_INIT;
     }
-    buffer->factory_pointer = NULL;
-    buffer->stl_pointer = NULL;
-    buffer->product_arr = NULL;
-    buffer->fake_id = NO_INIT;
-    buffer->id = NO_INIT;
-    buffer->num_products = NO_INIT;
-    buffer->min_value = NO_INIT;
-
-}
+};
 
 static void* produceThreadWrapper(void *args) {
     Buffer* buffer = (Buffer*)args;
@@ -68,6 +65,7 @@ static void* produceThreadWrapper(void *args) {
     safePrint("produce updated map");//TODO: delete after debug
     buffer->factory_pointer->produce(buffer->num_products,buffer->product_arr);
     safePrint("produce Done");//TODO: delete after debug
+    delete buffer;
     pthread_exit(NULL);
 }
 
@@ -83,7 +81,7 @@ void *thiefThreadWrapper(void * args) {
     int *number_of_stolen = new int;
     *number_of_stolen = buffer->factory_pointer->stealProducts(buffer->num_products,buffer->fake_id);
     safePrint("thief Done");//TODO: delete after debug
-
+    delete buffer;
     pthread_exit(number_of_stolen);
 }
 
@@ -104,6 +102,7 @@ void *companyThreadWrapper(void * args) {
     int *number_of_returned = new int;
     *number_of_returned =(int)returned_products.size();
     buffer->factory_pointer->returnProducts(returned_products,buffer->id);
+    delete buffer;
     pthread_exit(number_of_returned);
 }
 
@@ -116,6 +115,7 @@ void *buyerThreadWrapper(void * args) {
 
     int *procuct_id = new int;
     *procuct_id = buffer->factory_pointer->tryBuyOne();
+    delete buffer;
     pthread_exit(procuct_id);
 }
 
@@ -165,8 +165,7 @@ void Factory::startProduction(int num_products, Product* products,unsigned int i
     assert(num_products >0);
     assert(products != nullptr);
     pthread_t p;
-    Buffer *buffer = (Buffer*) malloc(sizeof(Buffer));
-    bufferInit(buffer);
+    Buffer *buffer = new Buffer();
     buffer->factory_pointer = this;
     buffer->num_products = num_products;
     buffer->product_arr = products;
@@ -192,11 +191,10 @@ void Factory::finishProduction(unsigned int id){
 
 void Factory::startSimpleBuyer(unsigned int id){
     pthread_t p;
-    Buffer buffer;
-    bufferInit(&buffer);
-    buffer.factory_pointer = this;
-    buffer.id = id;
-    pthread_create(&p,NULL,buyerThreadWrapper,&buffer);
+    Buffer *buffer = new Buffer();
+    buffer->factory_pointer = this;
+    buffer->id = id;
+    pthread_create(&p,NULL,buyerThreadWrapper,buffer);
 }
 
 int Factory::tryBuyOne(){
@@ -215,10 +213,10 @@ int Factory::finishSimpleBuyer(unsigned int id){
     pthread_t p = this->getThreadIDMap(id);
     this->removeFromMap(id);
     write_unlock_map();
-    void **buffer;
-    pthread_join(p,buffer);
+    void *buffer;
+    pthread_join(p,&buffer);
     assert(buffer != NULL);
-    int* product_id = (int*)(*buffer);
+    int* product_id = (int*)(buffer);
     int return_id = *product_id;
     delete product_id;
     return return_id;
@@ -227,12 +225,11 @@ int Factory::finishSimpleBuyer(unsigned int id){
 void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id){
     assert(num_products > 0);
     pthread_t p;
-    Buffer buffer;
-    bufferInit(&buffer);
-    buffer.factory_pointer = this;
-    buffer.num_products = num_products;
-    buffer.min_value = min_value;
-    buffer.id = id;
+    Buffer *buffer = new Buffer();
+    buffer->factory_pointer = this;
+    buffer->num_products = num_products;
+    buffer->min_value = min_value;
+    buffer->id = id;
     pthread_create(&p,NULL,companyThreadWrapper,&buffer);
 }
 
@@ -274,8 +271,7 @@ int Factory::finishCompanyBuyer(unsigned int id){
 
 void Factory::startThief(int num_products,unsigned int fake_id){
     assert(num_products > 0);
-    Buffer *buffer = (Buffer*) malloc(sizeof(Buffer));
-    bufferInit(buffer);
+    Buffer *buffer = new Buffer();
     buffer->factory_pointer = this;
     buffer->num_products = num_products;
     buffer->fake_id = fake_id;
@@ -317,7 +313,27 @@ void Factory::closeFactory(){
 
 void Factory::openFactory(){
     this->is_open = true;
-}
+    if(this->number_of_resource_writers == 0 && this->number_of_resource_readers == 0){
+        pthread_cond_broadcast(&(this->cond_read));
+        pthread_cond_signal(&(this->cond_factory_produce));
+        if(this->is_open){
+            if(this->waiting_thieves_counter > 0) {
+                pthread_cond_signal(&(this->cond_thief));
+                pthread_mutex_unlock(&(this->mutex_general_factory));
+                return;
+            }
+            if(this->waiting_companies_counter > 0){
+                pthread_cond_signal(&(this->cond_company));
+                pthread_mutex_unlock(&(this->mutex_general_factory));
+                return;
+            }
+            if(this->waiting_buyers_counter > 0){
+                pthread_cond_signal(&(this->cond_costumer));
+                pthread_mutex_unlock(&(this->mutex_general_factory));
+                return;
+            }
+        }
+    }
 
 void Factory::closeReturningService(){
     this->is_return = false;
@@ -325,6 +341,27 @@ void Factory::closeReturningService(){
 
 void Factory::openReturningService(){
     this->is_return = true;
+    if(this->number_of_resource_writers == 0 && this->number_of_resource_readers == 0){
+        pthread_cond_broadcast(&(this->cond_read));
+        pthread_cond_signal(&(this->cond_factory_produce));
+        if(this->is_open){
+            if(this->waiting_thieves_counter > 0) {
+                pthread_cond_signal(&(this->cond_thief));
+                pthread_mutex_unlock(&(this->mutex_general_factory));
+                return;
+            }
+            if(this->waiting_companies_counter > 0){
+                pthread_cond_signal(&(this->cond_company));
+                pthread_mutex_unlock(&(this->mutex_general_factory));
+                return;
+            }
+            if(this->waiting_buyers_counter > 0){
+                pthread_cond_signal(&(this->cond_costumer));
+                pthread_mutex_unlock(&(this->mutex_general_factory));
+                return;
+            }
+        }
+    }
 }
 
 std::list<std::pair<Product, int>> Factory::listStolenProducts(){
@@ -415,6 +452,17 @@ void Factory::write_lock_factory_produce() {
     while(this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
         pthread_cond_wait(&(this->cond_factory_produce),&(this->mutex_general_factory));
     }
+    this->number_of_resource_writers++;
+    pthread_mutex_unlock(&(this->mutex_general_factory));
+}
+
+void Factory::write_lock_factory_control() {
+    pthread_mutex_lock(&(this->mutex_general_factory));
+    this->waiting_control_counter = ++;
+    while(this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
+        pthread_cond_wait(&(this->cond_factory_control),&(this->mutex_general_factory));
+    }
+    this->waiting_control_counter = --;
     this->number_of_resource_writers++;
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
