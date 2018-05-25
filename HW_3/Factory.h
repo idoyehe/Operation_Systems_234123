@@ -17,8 +17,6 @@ class Factory {
     pthread_cond_t cond_map_remover;
     pthread_mutex_t mutex_map;
 
-
-
     bool is_open;
     bool is_return;
     pthread_cond_t cond_factory_produce;
@@ -46,7 +44,7 @@ class Factory {
 
     void write_lock_thieves();
 
-    void write_lock_first_company(int num_products);
+    void write_lock_first_company();
 
     void write_lock_second_company(int num_products,bool return_service);
 
