@@ -86,16 +86,20 @@ static void *companyThreadWrapper(void * args) {
     buffer->factory_pointer->insertToMap(buffer->id,pthread_self());
     buffer->factory_pointer->unlock_map();
 
-    std::list<Product> company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
+    std::list<Product> company_products = buffer->factory_pointer->companytrybuyProducts(buffer->num_products);
+    if(company_products.size() < buffer->num_products){
+        company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
+    }
+
     std::list<Product> returned_products;
     for(std::list<Product>::iterator it = company_products.begin(), end = company_products.end(); it != end; ++it){
         if((*it).getValue() < buffer->min_value){
             returned_products.push_back((*it));
         }
     }
+
     int *number_of_returned = new int;
     *number_of_returned =(int)returned_products.size();
-    buffer->factory_pointer->company_come_return();
     buffer->factory_pointer->returnProducts(returned_products,buffer->id);
     delete buffer;
     pthread_exit(number_of_returned);
@@ -140,8 +144,7 @@ Factory::Factory(){
     this->waiting_companies_counter = 0;
     pthread_cond_init(&(this->cond_company_waiting),NULL);
 
-    this->waiting_buyers_counter = 0;
-    pthread_cond_init(&(this->cond_buyer),NULL);
+    pthread_cond_init(&(this->cond_no_thief),NULL);
 
     pthread_mutex_init(&(this->mutex_general_factory),NULL);
 }
@@ -151,7 +154,7 @@ Factory::~Factory(){
     pthread_cond_destroy(&(this->cond_factory_produce));
     pthread_cond_destroy(&(this->cond_thief));
     pthread_cond_destroy(&(this->cond_company_waiting));
-    pthread_cond_destroy(&(this->cond_buyer));
+    pthread_cond_destroy(&(this->cond_no_thief));
     pthread_mutex_destroy(&(this->mutex_general_factory));
 
     pthread_cond_destroy(&(this->cond_map_adders));
@@ -196,16 +199,14 @@ void Factory::startSimpleBuyer(unsigned int id){
     Buffer *buffer = new Buffer();
     buffer->factory_pointer = this;
     buffer->id = id;
-    this->waiting_buyers_counter++;
     this->map_adders_counter++;
     if(pthread_create(&p,NULL,buyerThreadWrapper,buffer) != 0){
-        this->waiting_buyers_counter--;
         this->map_adders_counter--;
     }
 }
 
 int Factory::tryBuyOne(){
-    write_lock_single_buyer();
+    write_lock_buyer();
     if(this->_listAvailableProducts.empty()){
         return -1;
     }
@@ -245,8 +246,12 @@ void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id)
     }
 }
 
-std::list<Product> Factory::buyProducts(int num_products){
-    write_lock_company(num_products, false);
+std::list<Product> Factory::companytrybuyProducts(int num_products){
+    write_lock_first_company(num_products);
+    if(num_products > _listAvailableProducts.size()){
+        write_unlock();
+        return std::list<Product> ();
+    }
     assert(num_products <= _listAvailableProducts.size());
     std::list<Product>::iterator it = this->_listAvailableProducts.begin();
     std::list<Product> company_products;
@@ -259,8 +264,9 @@ std::list<Product> Factory::buyProducts(int num_products){
     return company_products;
 }
 
+
 void Factory::returnProducts(std::list<Product> products,unsigned int id){
-    write_lock_company(NO_INIT,!this->is_return);// sending negative number to remove dependency in num_product
+    write_lock_second_company(NO_INIT, this->is_return);// sending negative number to remove dependency in num_product
     for(std::list<Product>::iterator it = products.begin(), end = products.end(); it != end; ++it){
         this->_listAvailableProducts.push_back(*it);
     }
@@ -346,42 +352,37 @@ void Factory::openFactory() {
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if (this->waiting_buyers_counter > 0) {
-                pthread_cond_signal(&(this->cond_buyer));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
+            pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
+    pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 void Factory::closeReturningService(){
     this->is_return = false;
 }
 
-void Factory::openReturningService(){
+void Factory::openReturningService() {
     this->is_return = true;
-    if(this->number_of_resource_writers == 0 && this->number_of_resource_readers == 0){
+    if (this->number_of_resource_writers == 0 &&
+        this->number_of_resource_readers == 0) {
         pthread_cond_broadcast(&(this->cond_read));
         pthread_cond_signal(&(this->cond_factory_produce));
-        if(this->is_open){
-            if(this->waiting_thieves_counter > 0) {
+        if (this->is_open) {
+            if (this->waiting_thieves_counter > 0) {
                 pthread_cond_signal(&(this->cond_thief));
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if(this->waiting_companies_counter > 0){
+            if (this->waiting_companies_counter > 0) {
                 pthread_cond_signal(&(this->cond_company_waiting));
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if(this->waiting_buyers_counter > 0){
-                pthread_cond_signal(&(this->cond_buyer));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
+            pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
+    pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 std::list<std::pair<Product, int>> Factory::listStolenProducts(){
@@ -423,11 +424,7 @@ void Factory::read_Unlock() {
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if (this->waiting_buyers_counter > 0) {
-                pthread_cond_signal(&(this->cond_buyer));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
+            pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
     pthread_mutex_unlock(&(this->mutex_general_factory));
@@ -443,34 +440,40 @@ void Factory::write_lock_thieves() {
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
-void Factory::write_lock_company(int number_product, bool is_returned) {
+void Factory::write_lock_first_company(int number_product) {
     pthread_mutex_lock(&(this->mutex_general_factory));
-    while(!this->is_open || this->waiting_thieves_counter > 0 || is_returned
+    while(!this->is_open || this->waiting_thieves_counter > 0
           ||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0
           ){
         pthread_cond_wait(&(this->cond_company_waiting),&(this->mutex_general_factory));
     }
 
-    this->waiting_companies_counter--;//company enter the factory
-
-    this->no_products_companies_counter++;
-    while(number_product > this->listAvailableProducts().size()){
-        pthread_cond_wait(&(this->cond_company_no_product),&(this->mutex_general_factory));
-    }
-    this->no_products_companies_counter--;
-
+    this->waiting_companies_counter--;//company enter the factory for first time
     this->number_of_resource_writers++;
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
-void Factory::write_lock_single_buyer() {
+void Factory::write_lock_second_company(int num_products,bool return_service) {
+    pthread_mutex_lock(&(this->mutex_general_factory));
+    while(!this->is_open || this->waiting_thieves_counter > 0 || num_products > this->_listAvailableProducts.size()
+          || !return_service ||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0
+            ){
+        pthread_cond_wait(&(this->cond_no_thief),&(this->mutex_general_factory));
+    }
+
+    this->number_of_resource_writers++;//company enter the factory for second time
+    pthread_mutex_unlock(&(this->mutex_general_factory));
+}
+
+
+
+void Factory::write_lock_buyer() {
     pthread_mutex_lock(&(this->mutex_general_factory));
     while(!this->is_open || this->waiting_thieves_counter > 0 || this->waiting_companies_counter > 0
           ||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
-        pthread_cond_wait(&(this->cond_buyer),&(this->mutex_general_factory));
+        pthread_cond_wait(&(this->cond_no_thief),&(this->mutex_general_factory));
     }
-    this->waiting_buyers_counter--;//buyer gets into factory
-    this->number_of_resource_writers++;//buyer catch the factory
+    this->number_of_resource_writers++;//no thief catch the factory
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
@@ -501,12 +504,7 @@ void Factory::write_unlock() {
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if(this->waiting_buyers_counter > 0 || this->no_products_companies_counter > 0){
-                pthread_cond_signal(&(this->cond_buyer));
-                pthread_cond_broadcast(&(this->cond_company_no_product));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
+            pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
     pthread_mutex_unlock(&(this->mutex_general_factory));
@@ -558,6 +556,20 @@ void Factory::unlock_map() {
     return;
 }
 
-void Factory::company_come_return() {
-    this->waiting_companies_counter++;
+std::list<Product> Factory::buyProducts(int num_products) {
+    write_lock_second_company(num_products,true);
+    if(num_products > _listAvailableProducts.size()){
+        write_unlock();
+        return std::list<Product> ();
+    }
+    assert(num_products <= _listAvailableProducts.size());
+    std::list<Product>::iterator it = this->_listAvailableProducts.begin();
+    std::list<Product> company_products;
+    for(int i = 0; i < num_products ; i++){
+        company_products.push_back(*(it));
+        this->_listAvailableProducts.pop_front();
+        it = this->_listAvailableProducts.begin();
+    }
+    write_unlock();
+    return company_products;
 }

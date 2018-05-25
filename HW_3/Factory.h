@@ -34,11 +34,7 @@ class Factory {
     int waiting_companies_counter;
     pthread_cond_t cond_company_waiting;
 
-    int no_products_companies_counter;
-    pthread_cond_t cond_company_no_product;
-
-    int waiting_buyers_counter;
-    pthread_cond_t cond_buyer;
+    pthread_cond_t cond_no_thief;
     pthread_mutex_t mutex_general_factory;
 
 
@@ -50,13 +46,13 @@ class Factory {
 
     void write_lock_thieves();
 
-    void write_lock_company(int num_products, bool is_returned);
+    void write_lock_first_company(int num_products);
 
-    void write_lock_single_buyer();
+    void write_lock_second_company(int num_products,bool return_service);
+
+    void write_lock_buyer();
 
     void write_unlock();
-
-    void wakeup_priority();
 
 
 public:
@@ -113,6 +109,7 @@ public:
 
     pthread_t getThreadIDMap(int id);
 
-    void company_come_return();
+    std::list<Product> companytrybuyProducts(int num_products);
+
 };
 #endif // FACTORY_H_
