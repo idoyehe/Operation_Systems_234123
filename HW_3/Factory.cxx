@@ -32,10 +32,6 @@ void safePrint(const std::string str){
     print_lock();
     std::cout << "\n-------------------------\n";
     std::cout << str;
-//    std::cout << "\nwaiting thief: " + std::to_string(args[0]);
-//    std::cout << "\nwaiting company: " + std::to_string(args[1]);
-//    std::cout << "\nwriter: " + std::to_string(args[2]);
-//    std::cout << "\nreaders: " + std::to_string(args[3]);
     std::cout << "\n-------------------------\n";
     print_unlock();
 }
