@@ -9,15 +9,19 @@
 class Factory {
     std::list<std::pair<Product, int>> _listStolenProducts;
     std::list<Product> _listAvailableProducts;
+
     std::map<int, pthread_t> _id2threadMAP;
+    bool busy_map;
+    int map_adders_counter;
+    pthread_cond_t cond_map_adders;
+    pthread_cond_t cond_map_remover;
+    pthread_mutex_t mutex_map;
+
+
 
     bool is_open;
     bool is_return;
     pthread_cond_t cond_factory_produce;
-
-    int number_of_map_writers;
-    pthread_cond_t cond_map;
-    pthread_mutex_t mutex_map;
 
 
     int number_of_resource_writers;
@@ -26,10 +30,15 @@ class Factory {
 
     int waiting_thieves_counter;
     pthread_cond_t cond_thief;
+
     int waiting_companies_counter;
-    pthread_cond_t cond_company;
+    pthread_cond_t cond_company_waiting;
+
+    int no_products_companies_counter;
+    pthread_cond_t cond_company_no_product;
+
     int waiting_buyers_counter;
-    pthread_cond_t cond_costumer;
+    pthread_cond_t cond_buyer;
     pthread_mutex_t mutex_general_factory;
 
 
@@ -46,6 +55,8 @@ class Factory {
     void write_lock_single_buyer();
 
     void write_unlock();
+
+    void wakeup_priority();
 
 
 public:
@@ -91,14 +102,17 @@ public:
 
     std::list<Product> listAvailableProducts();
 
-    void write_lock_map();
+    void adder_lock_map();
+    void remover_lock_map();
 
-    void write_unlock_map();
+    void unlock_map();
 
     void insertToMap(int id, pthread_t p);
 
     void removeFromMap(int id);
 
     pthread_t getThreadIDMap(int id);
+
+    void company_come_return();
 };
 #endif // FACTORY_H_
