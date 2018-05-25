@@ -1,6 +1,5 @@
 #include "Factory.h"
 #include "test_utilities.h"
-#include <unistd.h>
 
 #define NUM_PRODUCTS 50
 #define MIN_PURCHESE 3

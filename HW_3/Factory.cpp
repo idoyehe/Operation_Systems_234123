@@ -1,12 +1,14 @@
 #include "Factory.h"
 #include <assert.h>
-#include <iostream>
+#include <iostream>//TODO: delete after debug
+#include <string>
 
 #define NO_INIT -1
 
 pthread_mutex_t mutex_printer;//TODO: delete after debug
 pthread_cond_t cond_printer;//TODO: delete after debug
 int number_of_printers = 0;
+int my_time = 0;
 
 void print_lock() {//TODO: delete after debug
     pthread_mutex_lock(&mutex_printer);//TODO: delete after debug
@@ -26,10 +28,14 @@ void print_unlock() {//TODO: delete after debug
     pthread_mutex_unlock(&mutex_printer);//TODO: delete after debug
 }//TODO: delete after debug
 
-void safePrint(const char * str){
+void safePrint(const std::string str){
     print_lock();
     std::cout << "\n-------------------------\n";
     std::cout << str;
+//    std::cout << "\nwaiting thief: " + std::to_string(args[0]);
+//    std::cout << "\nwaiting company: " + std::to_string(args[1]);
+//    std::cout << "\nwriter: " + std::to_string(args[2]);
+//    std::cout << "\nreaders: " + std::to_string(args[3]);
     std::cout << "\n-------------------------\n";
     print_unlock();
 }
@@ -72,10 +78,12 @@ static void *thiefThreadWrapper(void * args) {
     buffer->factory_pointer->adder_lock_map();
     buffer->factory_pointer->insertToMap(buffer->fake_id,pthread_self());
     buffer->factory_pointer->unlock_map();
+    safePrint("thief No " + std::to_string(buffer->fake_id) + " updated map " + " time: " + std::to_string(my_time++));
 
     int *number_of_stolen = new int;
     *number_of_stolen = buffer->factory_pointer->stealProducts(buffer->num_products,(unsigned)buffer->fake_id);
     delete buffer;
+    safePrint("thief No " + std::to_string(buffer->fake_id) + " stole "+ " time: " + std::to_string(my_time++));
     pthread_exit(number_of_stolen);
 }
 
@@ -84,13 +92,12 @@ static void *companyThreadWrapper(void * args) {
 
     buffer->factory_pointer->adder_lock_map();
     buffer->factory_pointer->insertToMap(buffer->id,pthread_self());
+    safePrint("company No " + std::to_string(buffer->id) + " updated map "+ " time: " + std::to_string(my_time++));
     buffer->factory_pointer->unlock_map();
 
-    std::list<Product> company_products = buffer->factory_pointer->companytrybuyProducts(buffer->num_products);
-    if((int)company_products.size() < buffer->num_products){
-        assert((int)company_products.size() == 0);
-        company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
-    }
+
+    std::list<Product> company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
+    safePrint("company No " + std::to_string(buffer->id) + "after buy"+ " time: " + std::to_string(my_time++));
 
     std::list<Product> returned_products;
     for(std::list<Product>::iterator it = company_products.begin(), end = company_products.end(); it != end; ++it){
@@ -98,10 +105,12 @@ static void *companyThreadWrapper(void * args) {
             returned_products.push_back((*it));
         }
     }
-
     int *number_of_returned = new int;
-    *number_of_returned =(int)returned_products.size();
-    buffer->factory_pointer->returnProducts(returned_products,buffer->id);
+    *number_of_returned = (int) returned_products.size();
+    safePrint("company No " + std::to_string(buffer->id) + "has "+ std::to_string(*number_of_returned)+" to return"+" time: " + std::to_string(my_time++));
+    if((*number_of_returned) > 0) {
+        buffer->factory_pointer->returnProducts(returned_products,0);
+    }
     delete buffer;
     pthread_exit(number_of_returned);
 }
@@ -112,9 +121,11 @@ static void *buyerThreadWrapper(void * args) {
     buffer->factory_pointer->adder_lock_map();
     buffer->factory_pointer->insertToMap(buffer->id,pthread_self());
     buffer->factory_pointer->unlock_map();
+    safePrint("Buyer No " + std::to_string(buffer->id) + " updated map " + " time: " + std::to_string(my_time++));
 
     int *procuct_id = new int;
     *procuct_id = buffer->factory_pointer->tryBuyOne();
+    safePrint("Buyer No " + std::to_string(buffer->id) + " after tryBuyOne " + " time: " + std::to_string(my_time++));
     delete buffer;
     pthread_exit(procuct_id);
 }
@@ -142,12 +153,11 @@ Factory::Factory(){
     this->waiting_thieves_counter = 0;
     pthread_cond_init(&(this->cond_thief),NULL);
 
-    this->waiting_companies_counter = 0;
-    pthread_cond_init(&(this->cond_company_waiting),NULL);
-
     pthread_cond_init(&(this->cond_no_thief),NULL);
 
     pthread_mutex_init(&(this->mutex_general_factory),NULL);
+    this-> waiting_companies_counter = 0;
+
 }
 
 Factory::~Factory(){
@@ -159,7 +169,6 @@ Factory::~Factory(){
 
     pthread_cond_destroy(&(this->cond_read));
     pthread_cond_destroy(&(this->cond_thief));
-    pthread_cond_destroy(&(this->cond_company_waiting));
     pthread_cond_destroy(&(this->cond_no_thief));
     pthread_mutex_destroy(&(this->mutex_general_factory));
 }
@@ -202,13 +211,16 @@ void Factory::startSimpleBuyer(unsigned int id){
     buffer->factory_pointer = this;
     buffer->id = id;
     this->map_adders_counter++;
+    safePrint("Buyer No " + std::to_string(buffer->id) + " time: " + std::to_string(my_time++));
     if(pthread_create(&p,NULL,buyerThreadWrapper,buffer) != 0){
         this->map_adders_counter--;
     }
 }
 
 int Factory::tryBuyOne(){
-    write_lock_buyer();
+    if(write_lock_buyer() == -1) {
+        return -1;
+    }
     if(this->_listAvailableProducts.empty()){
         write_unlock();
         return -1;
@@ -221,12 +233,15 @@ int Factory::tryBuyOne(){
 
 int Factory::finishSimpleBuyer(unsigned int id){
     remover_lock_map();
+    safePrint("finish Buyer No " + std::to_string(id) +" waiting to map "+ " time: " + std::to_string(my_time++));
     pthread_t p = this->getThreadIDMap(id);
     this->removeFromMap(id);
     unlock_map();
+    safePrint("finish Buyer No " + std::to_string(id) +" updated map "+ " time: " + std::to_string(my_time++));
 
     void *ret_val;
     pthread_join(p,&ret_val);
+    safePrint("finish Buyer No " + std::to_string(id) +" finish waiting to thread "+ " time: " + std::to_string(my_time++));
     assert(ret_val != NULL);
     int return_id = *(int*)ret_val;
     delete (int*)ret_val;
@@ -241,38 +256,19 @@ void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id)
     buffer->num_products = num_products;
     buffer->min_value = min_value;
     buffer->id = id;
-    this->waiting_companies_counter++;
     this->map_adders_counter++;
-    if(pthread_create(&p,NULL,companyThreadWrapper,&buffer) != 0){
-        this->waiting_companies_counter--;
+    safePrint("company id No " + std::to_string(id) + " "+ " time: " + std::to_string(my_time++));
+    if(pthread_create(&p, NULL,companyThreadWrapper,buffer) != 0){
         this->map_adders_counter--;
     }
 }
 
-std::list<Product> Factory::companytrybuyProducts(int num_products){
-    write_lock_first_company();
-    if(num_products > (int)_listAvailableProducts.size()){
-        write_unlock();
-        return std::list<Product> ();
-    }
-    assert(num_products <=(int) _listAvailableProducts.size());
-    std::list<Product>::iterator it = this->_listAvailableProducts.begin();
-    std::list<Product> company_products;
-    for(int i = 0; i < num_products ; i++){
-        company_products.push_back(*(it));
-        this->_listAvailableProducts.pop_front();
-        it = this->_listAvailableProducts.begin();
-    }
-    write_unlock();
-    return company_products;
-}
-
-
 void Factory::returnProducts(std::list<Product> products,unsigned int id){
-    write_lock_second_company(NO_INIT, this->is_return);// sending negative number to remove dependency in num_product
+    write_lock_company(NO_INIT, true);// sending negative number to remove dependency in num_product
     for(std::list<Product>::iterator it = products.begin(), end = products.end(); it != end; ++it){
         this->_listAvailableProducts.push_back(*it);
     }
+    safePrint("company No " + std::to_string(id) + " after return "+ " time: " + std::to_string(my_time++));
     write_unlock();
 }
 
@@ -299,6 +295,7 @@ void Factory::startThief(int num_products,unsigned int fake_id){
     pthread_t p;
     this->waiting_thieves_counter++;
     this->map_adders_counter ++;
+    safePrint("Thief id No " + std::to_string(fake_id)+ " "+ " time: " + std::to_string(my_time++));
     if(pthread_create(&p,NULL,thiefThreadWrapper,buffer) != 0){
         this->waiting_thieves_counter--;
         this->map_adders_counter --;
@@ -320,13 +317,16 @@ int Factory::stealProducts(int num_products,unsigned int fake_id){
 }
 
 int Factory::finishThief(unsigned int fake_id){
+    safePrint("finish thief No " + std::to_string(fake_id) +" waiting to map "+ " time: " + std::to_string(my_time++));
     remover_lock_map();
     pthread_t p = this->getThreadIDMap(fake_id);
     this->removeFromMap(fake_id);
     unlock_map();
+    safePrint("finish thief No " + std::to_string(fake_id) +" updated map "+ " time: " + std::to_string(my_time++));
 
     void *ret_val;
     pthread_join(p,&ret_val);
+    safePrint("finish thief No " + std::to_string(fake_id) +" finish waiting to thread "+ " time: " + std::to_string(my_time++));
     assert(ret_val != NULL);
     int number_of_stolen = *(int*)ret_val;
     delete (int*)ret_val;
@@ -345,17 +345,10 @@ void Factory::openFactory() {
         pthread_cond_signal(&(this->cond_factory_produce));
         if (this->waiting_thieves_counter > 0) {
             pthread_cond_signal(&(this->cond_thief));
-            pthread_mutex_unlock(&(this->mutex_general_factory));
-            return;
-        }
-        if (this->waiting_companies_counter > 0) {
-            pthread_cond_signal(&(this->cond_company_waiting));
-            pthread_mutex_unlock(&(this->mutex_general_factory));
             return;
         }
         pthread_cond_broadcast(&(this->cond_no_thief));
     }
-    pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 void Factory::closeReturningService(){
@@ -371,18 +364,11 @@ void Factory::openReturningService() {
         if (this->is_open) {
             if (this->waiting_thieves_counter > 0) {
                 pthread_cond_signal(&(this->cond_thief));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
-            if (this->waiting_companies_counter > 0) {
-                pthread_cond_signal(&(this->cond_company_waiting));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
             pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
-    pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 std::list<std::pair<Product, int>> Factory::listStolenProducts(){
@@ -419,11 +405,6 @@ void Factory::read_Unlock() {
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if (this->waiting_companies_counter > 0) {
-                pthread_cond_signal(&(this->cond_company_waiting));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
             pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
@@ -440,41 +421,31 @@ void Factory::write_lock_thieves() {
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
-void Factory::write_lock_first_company() {
+void Factory::write_lock_company(int num_products, bool want_to_return) {
     pthread_mutex_lock(&(this->mutex_general_factory));
-    while(!this->is_open || this->waiting_thieves_counter > 0
-          ||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0
-          ){
-        pthread_cond_wait(&(this->cond_company_waiting),&(this->mutex_general_factory));
-    }
-
-    this->waiting_companies_counter--;//company enter the factory for first time
-    this->number_of_resource_writers++;
-    pthread_mutex_unlock(&(this->mutex_general_factory));
-}
-
-void Factory::write_lock_second_company(int num_products,bool return_service) {
-    pthread_mutex_lock(&(this->mutex_general_factory));
+    this->waiting_companies_counter++;
     while(!this->is_open || (this->waiting_thieves_counter > 0) || (num_products >(int)this->_listAvailableProducts.size())
-          || !return_service ||(this->number_of_resource_writers > 0) || (this->number_of_resource_readers > 0)){
+          || (want_to_return && !(this->is_return)) ||(this->number_of_resource_writers > 0) || (this->number_of_resource_readers > 0)){
 
         pthread_cond_wait(&(this->cond_no_thief),&(this->mutex_general_factory));
     }
-
+    this->waiting_companies_counter--;
     this->number_of_resource_writers++;//company enter the factory for second time
     pthread_mutex_unlock(&(this->mutex_general_factory));
 }
 
 
-
-void Factory::write_lock_buyer() {
-    pthread_mutex_lock(&(this->mutex_general_factory));
-    while(!this->is_open || this->waiting_thieves_counter > 0 || this->waiting_companies_counter > 0
-          ||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
-        pthread_cond_wait(&(this->cond_no_thief),&(this->mutex_general_factory));
+int Factory::write_lock_buyer() {
+    if(pthread_mutex_trylock(&(this->mutex_general_factory)) != 0){
+        return -1;
     }
-    this->number_of_resource_writers++;//no thief catch the factory
+    if(!this->is_open ||this->number_of_resource_writers > 0 || this->number_of_resource_readers > 0){
+        pthread_mutex_unlock(&(this->mutex_general_factory));
+        return -1;
+    }
+    this->number_of_resource_writers++;//buyer catch the factory
     pthread_mutex_unlock(&(this->mutex_general_factory));
+    return 0;
 }
 
 void Factory::write_lock_factory_produce() {
@@ -499,11 +470,6 @@ void Factory::write_unlock() {
                 pthread_mutex_unlock(&(this->mutex_general_factory));
                 return;
             }
-            if(this->waiting_companies_counter > 0){
-                pthread_cond_signal(&(this->cond_company_waiting));
-                pthread_mutex_unlock(&(this->mutex_general_factory));
-                return;
-            }
             pthread_cond_broadcast(&(this->cond_no_thief));
         }
     }
@@ -521,6 +487,7 @@ void Factory::removeFromMap(int id){
 pthread_t Factory::getThreadIDMap(int id){
     std::map<int,pthread_t>::iterator it = this->_id2threadMAP.find(id);
     assert(it != this->_id2threadMAP.end());
+
     return (*(it)).second;
 }
 
@@ -557,7 +524,7 @@ void Factory::unlock_map() {
 }
 
 std::list<Product> Factory::buyProducts(int num_products) {
-    write_lock_second_company(num_products,true);
+    write_lock_company(num_products, false);
     assert(num_products <=(int) _listAvailableProducts.size());
     std::list<Product>::iterator it = this->_listAvailableProducts.begin();
     std::list<Product> company_products;

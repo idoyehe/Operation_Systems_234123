@@ -5,6 +5,7 @@
 #include <list>
 #include <map>
 #include "Product.h"
+#include <string>//TODO remove
 
 class Factory {
     std::list<std::pair<Product, int>> _listStolenProducts;
@@ -30,7 +31,6 @@ class Factory {
     pthread_cond_t cond_thief;
 
     int waiting_companies_counter;
-    pthread_cond_t cond_company_waiting;
 
     pthread_cond_t cond_no_thief;
     pthread_mutex_t mutex_general_factory;
@@ -44,11 +44,9 @@ class Factory {
 
     void write_lock_thieves();
 
-    void write_lock_first_company();
+    void write_lock_company(int num_products, bool return_service);
 
-    void write_lock_second_company(int num_products,bool return_service);
-
-    void write_lock_buyer();
+    int write_lock_buyer();
 
     void write_unlock();
 
@@ -97,6 +95,7 @@ public:
     std::list<Product> listAvailableProducts();
 
     void adder_lock_map();
+
     void remover_lock_map();
 
     void unlock_map();
@@ -107,7 +106,5 @@ public:
 
     pthread_t getThreadIDMap(int id);
 
-    std::list<Product> companytrybuyProducts(int num_products);
-
-};
+    };
 #endif // FACTORY_H_
