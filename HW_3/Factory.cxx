@@ -28,7 +28,7 @@ static void* _produceThreadWrapper_(void *args) {
 
     buffer->factory_pointer->addProduceThreadLockMap();
     buffer->factory_pointer->insertProduceIDToMap(buffer->id, pthread_self());
-    buffer->factory_pointer->produceMapUnlock();
+    buffer->factory_pointer->produceMapAdderUnlock();
 
     buffer->factory_pointer->produce(buffer->num_products,buffer->product_arr);
     delete buffer;
@@ -40,7 +40,7 @@ static void *buyerThreadWrapper(void * args) {
 
     buffer->factory_pointer->addBuyerThreadLockMap();
     buffer->factory_pointer->insertBuyerIDToMap(buffer->id, pthread_self());
-    buffer->factory_pointer->buyersMapUnlock();
+    buffer->factory_pointer->buyersMapAdderUnlock();
 
     int *procuct_id = new int;//transfer id product to finish function
     *procuct_id = buffer->factory_pointer->tryBuyOne();
@@ -52,7 +52,7 @@ static void *companyThreadWrapper(void * args) {
 
     buffer->factory_pointer->addCompanyThreadLockMap();
     buffer->factory_pointer->insertComapnyIDToMap(buffer->id, pthread_self());
-    buffer->factory_pointer->companiesMapUnlock();
+    buffer->factory_pointer->companiesAdderMapUnlock();
 
     std::list<Product> company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
 
@@ -76,8 +76,7 @@ static void *thiefThreadWrapper(void * args) {
 
     buffer->factory_pointer->addThiefThreadLockMap();
     buffer->factory_pointer->insertThiefIDToMap(buffer->fake_id, pthread_self());
-    buffer->factory_pointer->thievsMapUnlock();
-
+    buffer->factory_pointer->thievsMapAdderUnlock();
     int *number_of_stolen = new int;//transfer number od stolen products to finish function
     *number_of_stolen = buffer->factory_pointer->stealProducts(buffer->num_products,(unsigned)buffer->fake_id);
     delete buffer;
@@ -101,30 +100,35 @@ Factory::Factory(){
     this-> _counterWaitingCompanies_ = 0;
     pthread_cond_init(&(this->_cond_Companies_),nullptr);
 
-    pthread_mutex_init(&(this->_mutex_Factory_),nullptr);
+    pthread_mutex_init(&(this->_mutex_Factory_), nullptr);
+
 
     /*init maps variables*/
-    this->_busyMapProduce_ = false;
-    this->_mapProduceAddersCounter_ = 0;
+    this-> _mapProduceAdderWriters_ = 0;
+    this->_mapProduceRemoversWriters_ = 0;
+    this->_mapProduceAddersWaitingCounter_ = 0;
     pthread_cond_init(&(this->_cond_mapPruduceAdders_),nullptr);
     pthread_cond_init(&(this->_cond_mapProduceRemovers_),nullptr);
     pthread_mutex_init(&(this->_mutex_ProduceMap_),nullptr);
 
-    this->_busyMapThieves_ = false;
-    this->_mapThievesAddersCounter_ = 0;
+    this-> _MapThievesAddersWriters_ = 0;
+    this->_MapThievesRemovesWriters_ = 0;
+    this->_mapThievesAddersWaitingCounter_ = 0;
     pthread_cond_init(&(this->_cond_mapThievesAdders_),nullptr);
     pthread_cond_init(&(this->_cond_mapThievesRemovers_),nullptr);
     pthread_mutex_init(&(this->_mutex_ThievesMap_),nullptr);
 
-
-    this->_busyMapCompanies_ = false;
-    this->_mapCompaniesAddersCounter_ = 0;
+    this-> _MapCompaniesAddersWriters_ = 0;
+    this->_MapCompaniesRemovesWriters_ = 0;
+    this->_mapCompaniesAddersWaitingCounter_ = 0;
     pthread_cond_init(&(this->_cond_mapCompaniesAdders_),nullptr);
     pthread_cond_init(&(this->_cond_mapCompaniesRemovers_),nullptr);
     pthread_mutex_init(&(this->_mutex_CompaniesMap_),nullptr);
 
-    this->_busyMapBuyer_ = false;
-    this->_mapBuyerAddersCounter_ = 0;
+
+    this-> _MapBuyersAddersWriters_ = 0;
+    this->_MapBuyersRemovesWriters_ = 0;
+    this->_mapBuyerAddersWaitingCounter_ = 0;
     pthread_cond_init(&(this->_cond_mapBuyerAdders_),nullptr);
     pthread_cond_init(&(this->_cond_mapBuyerRemovers_),nullptr);
     pthread_mutex_init(&(this->_mutex_BuyerMap_),nullptr);
@@ -166,9 +170,9 @@ void Factory::startProduction(int num_products, Product* products,unsigned int i
     buffer->num_products = num_products;
     buffer->product_arr = products;
     buffer->id = id;
-    this->_mapProduceAddersCounter_ ++;
+    this->_mapProduceAddersWaitingCounter_ ++;
     if(pthread_create(&p, nullptr, _produceThreadWrapper_, buffer) != 0){
-        this->_mapProduceAddersCounter_ --;
+        this->_mapProduceAddersWaitingCounter_ --;
     }
 }
 
@@ -181,9 +185,9 @@ void Factory::produce(int num_products, Product* products){
 }
 
 void Factory::finishProduction(unsigned int id){
-    this->removeProduceThreadLockMap();
+    this->removeProduceThreadLockMap(id);
     pthread_t p = this->removeProduceIDFromMap(id);
-    this->produceMapUnlock();
+    this->produceMapRemoverUnlock();
     pthread_join(p,nullptr);
 }
 /*!!PRODUCE SECTION END!!*/
@@ -194,9 +198,9 @@ void Factory::startSimpleBuyer(unsigned int id){
     Buffer *buffer = new Buffer();//buffer to transfer args to thread
     buffer->factory_pointer = this;
     buffer->id = id;
-    this->_mapBuyerAddersCounter_++;
+    this->_mapBuyerAddersWaitingCounter_++;
     if(pthread_create(&p,nullptr,buyerThreadWrapper,buffer) != 0){
-        this->_mapBuyerAddersCounter_--;
+        this->_mapBuyerAddersWaitingCounter_--;
     }
 }
 
@@ -215,9 +219,9 @@ int Factory::tryBuyOne(){
 }
 
 int Factory::finishSimpleBuyer(unsigned int id){
-    this->removeBuyerThreadlockMap();
+    this->removeBuyerThreadlockMap(id);
     pthread_t p = this->removeBuyerIDFromMap(id);
-    this->buyersMapUnlock();
+    this->buyersMapRemoverUnlock();
 
     void *ret_val = nullptr;
     pthread_join(p,&ret_val);
@@ -237,9 +241,9 @@ void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id)
     buffer->num_products = num_products;
     buffer->min_value = min_value;
     buffer->id = id;
-    this->_mapCompaniesAddersCounter_++;
+    this->_mapCompaniesAddersWaitingCounter_++;
     if(pthread_create(&p, nullptr,companyThreadWrapper,buffer) != 0){
-        this->_mapCompaniesAddersCounter_--;
+        this->_mapCompaniesAddersWaitingCounter_--;
     }
 }
 
@@ -266,9 +270,9 @@ void Factory::returnProducts(std::list<Product> products,unsigned int id){
 }
 
 int Factory::finishCompanyBuyer(unsigned int id){
-    this->removeCompanyThreadlockMap();
+    this->removeCompanyThreadlockMap((int)id);
     pthread_t p = this->removeCompanyIDFromMap(id);
-    this->companiesMapUnlock();
+    this->companiesRemoverMapUnlock();
 
     void *ret_val = nullptr;
     pthread_join(p,&ret_val);
@@ -288,10 +292,10 @@ void Factory::startThief(int num_products,unsigned int fake_id){
     buffer->fake_id = fake_id;
     pthread_t p;
     this->_counterWaitingThievs_++;
-    this->_mapThievesAddersCounter_ ++;
+    this->_mapThievesAddersWaitingCounter_ ++;
     if(pthread_create(&p,nullptr,thiefThreadWrapper,buffer) != 0){
         this->_counterWaitingThievs_--;
-        this->_mapThievesAddersCounter_ --;
+        this->_mapThievesAddersWaitingCounter_ --;
     }
 }
 
@@ -310,9 +314,9 @@ int Factory::stealProducts(int num_products,unsigned int fake_id){
 }
 
 int Factory::finishThief(unsigned int fake_id){
-    removeThiefThreadLockMap();
+    this->removeThiefThreadLockMap((int)fake_id);
     pthread_t p = this->removeThiefIDFromMap(fake_id);
-    this->thievsMapUnlock();
+    this->thievsMapRemoverUnlock();
     void *ret_val = nullptr;
     pthread_join(p,&ret_val);
     assert(ret_val != nullptr);
@@ -342,10 +346,10 @@ std::list<Product> Factory::listAvailableProducts(){
 void Factory::_callCondByPrio_() {
     if (this->_numberOfFactoryWriters_ == 0 && this->_numberOfFactoryReaders_ == 0) {
         pthread_cond_broadcast(&(this->_cond_Readers_));
-        pthread_cond_signal(&(this->_cond_FactoryProduce_));
+        pthread_cond_broadcast(&(this->_cond_FactoryProduce_));
         if(this->_factoryIsOpen_) {
             if (this->_counterWaitingThievs_ > 0) {
-                pthread_cond_signal(&(this->_cond_Thievs_));
+                pthread_cond_broadcast(&(this->_cond_Thievs_));
                 return;
             }
             pthread_cond_broadcast(&(this->_cond_Companies_));
@@ -496,123 +500,147 @@ void Factory::_writersUnlock_() {
 /*!!MAPS MUTEX SECTION START!!*/
 void Factory::addProduceThreadLockMap() {
     pthread_mutex_lock(&(this->_mutex_ProduceMap_));
-    while(this->_busyMapProduce_){
+    while(this->_mapProduceAdderWriters_ > 0 || this-> _mapProduceRemoversWriters_ > 0){
         pthread_cond_wait(&(this->_cond_mapPruduceAdders_),&(this->_mutex_ProduceMap_));
     }
-    this->_mapProduceAddersCounter_--;
-    this->_busyMapProduce_ = true;
+    this->_mapProduceAddersWaitingCounter_--;
+    this->_mapProduceAdderWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_ProduceMap_));
 }
 
-void Factory::removeProduceThreadLockMap() {
+void Factory::produceMapAdderUnlock() {
     pthread_mutex_lock(&(this->_mutex_ProduceMap_));
-    while(this->_busyMapProduce_ || this->_mapProduceAddersCounter_ > 0){
+    this->_mapProduceAdderWriters_ --;
+    pthread_cond_broadcast(&this->_cond_mapPruduceAdders_);
+    pthread_cond_broadcast(&this->_cond_mapProduceRemovers_);
+    pthread_mutex_unlock(&(this->_mutex_ProduceMap_));
+}
+
+
+void Factory::removeProduceThreadLockMap(int id) {
+    pthread_mutex_lock(&(this->_mutex_ProduceMap_));
+    while(this->_mapProduceAdderWriters_ || this-> _mapProduceRemoversWriters_
+          || this->_mapProduce_.find(id) == this->_mapProduce_.end()){
         pthread_cond_wait(&(this->_cond_mapProduceRemovers_),&(this->_mutex_ProduceMap_));
     }
-    this->_busyMapProduce_ = true;
+    this->_mapProduceRemoversWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_ProduceMap_));
 }
 
-void Factory::produceMapUnlock() {
+void Factory::produceMapRemoverUnlock() {
     pthread_mutex_lock(&(this->_mutex_ProduceMap_));
-    this->_busyMapProduce_ = false;
-    if (this->_mapProduceAddersCounter_ > 0) {
-        pthread_cond_signal(&this->_cond_mapPruduceAdders_);
-        pthread_mutex_unlock(&(this->_mutex_ProduceMap_));
-        return;
-    }
-    pthread_cond_signal(&this->_cond_mapProduceRemovers_);
+    this->_mapProduceRemoversWriters_--;
+    pthread_cond_broadcast(&this->_cond_mapPruduceAdders_);
+    pthread_cond_broadcast(&this->_cond_mapProduceRemovers_);
     pthread_mutex_unlock(&(this->_mutex_ProduceMap_));
 }
+
+
 void Factory::addThiefThreadLockMap() {
     pthread_mutex_lock(&(this->_mutex_ThievesMap_));
-    while(this->_busyMapThieves_){
+    while(this->_MapThievesAddersWriters_ > 0 || this-> _MapThievesRemovesWriters_ > 0){
         pthread_cond_wait(&(this->_cond_mapThievesAdders_),&(this->_mutex_ThievesMap_));
     }
-    this->_mapThievesAddersCounter_--;
-    this->_busyMapThieves_ = true;
+    this->_mapThievesAddersWaitingCounter_--;
+    this->_MapThievesAddersWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_ThievesMap_));
 }
 
-void Factory::removeThiefThreadLockMap() {
+void Factory::thievsMapAdderUnlock() {
     pthread_mutex_lock(&(this->_mutex_ThievesMap_));
-    while(this->_busyMapThieves_ || this->_mapThievesAddersCounter_ > 0){
+    this->_MapThievesAddersWriters_ --;
+    pthread_cond_broadcast(&this->_cond_mapThievesAdders_);
+    pthread_cond_broadcast(&this->_cond_mapThievesRemovers_);
+    pthread_mutex_unlock(&(this->_mutex_ThievesMap_));
+}
+
+void Factory::removeThiefThreadLockMap(int id) {
+    pthread_mutex_lock(&(this->_mutex_ThievesMap_));
+    while(this->_MapThievesAddersWriters_ > 0 || this->_MapThievesRemovesWriters_ > 0
+          || this->_mapThieves_.find(id) == this->_mapThieves_.end()){
         pthread_cond_wait(&(this->_cond_mapThievesRemovers_),&(this->_mutex_ThievesMap_));
     }
-    this->_busyMapThieves_ = true;
+    this->_MapThievesRemovesWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_ThievesMap_));
 }
 
-void Factory::thievsMapUnlock() {
+void Factory::thievsMapRemoverUnlock() {
     pthread_mutex_lock(&(this->_mutex_ThievesMap_));
-    this->_busyMapThieves_ = false;
-    if (this->_mapThievesAddersCounter_ > 0) {
-        pthread_cond_signal(&this->_cond_mapThievesAdders_);
-        pthread_mutex_unlock(&(this->_mutex_ThievesMap_));
-        return;
-    }
-    pthread_cond_signal(&this->_cond_mapThievesRemovers_);
+    this->_MapThievesRemovesWriters_--;
+    pthread_cond_broadcast(&this->_cond_mapThievesAdders_);
+    pthread_cond_broadcast(&this->_cond_mapThievesRemovers_);
     pthread_mutex_unlock(&(this->_mutex_ThievesMap_));
 }
+
 
 void Factory::addCompanyThreadLockMap() {
     pthread_mutex_lock(&(this->_mutex_CompaniesMap_));
-    while(this->_busyMapCompanies_){
+    while(this->_MapCompaniesAddersWriters_ > 0 || this->_MapCompaniesRemovesWriters_ > 0){
         pthread_cond_wait(&(this->_cond_mapCompaniesAdders_),&(this->_mutex_CompaniesMap_));
     }
-    this->_mapCompaniesAddersCounter_--;
-    this->_busyMapCompanies_ = true;
+    this->_mapCompaniesAddersWaitingCounter_--;
+    this->_MapCompaniesAddersWriters_++;
     pthread_mutex_unlock(&(this->_mutex_CompaniesMap_));
 }
 
-void Factory::removeCompanyThreadlockMap() {
+void Factory::companiesAdderMapUnlock() {
     pthread_mutex_lock(&(this->_mutex_CompaniesMap_));
-    while(this->_busyMapCompanies_ || this->_mapCompaniesAddersCounter_ > 0){
+    this->_MapCompaniesAddersWriters_ --;
+    pthread_cond_broadcast(&this->_cond_mapCompaniesAdders_);
+    pthread_cond_broadcast(&this->_cond_mapCompaniesRemovers_);
+    pthread_mutex_unlock(&(this->_mutex_CompaniesMap_));
+}
+
+void Factory::removeCompanyThreadlockMap(int id) {
+    pthread_mutex_lock(&(this->_mutex_CompaniesMap_));
+    while(this->_MapCompaniesAddersWriters_ > 0 || this->_MapCompaniesRemovesWriters_ > 0
+         || this->_mapCompanies_.find(id) == this->_mapCompanies_.end()){
         pthread_cond_wait(&(this->_cond_mapCompaniesRemovers_),&(this->_mutex_CompaniesMap_));
     }
-    this->_busyMapCompanies_ = true;
+    this->_MapCompaniesRemovesWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_CompaniesMap_));
 }
 
-void Factory::companiesMapUnlock() {
+void Factory::companiesRemoverMapUnlock() {
     pthread_mutex_lock(&(this->_mutex_CompaniesMap_));
-    this->_busyMapCompanies_ = false;
-    if (this->_mapCompaniesAddersCounter_ > 0) {
-        pthread_cond_signal(&this->_cond_mapCompaniesAdders_);
-        pthread_mutex_unlock(&(this->_mutex_CompaniesMap_));
-        return;
-    }
-    pthread_cond_signal(&this->_cond_mapCompaniesRemovers_);
+    this->_MapCompaniesRemovesWriters_ --;
+    pthread_cond_broadcast(&this->_cond_mapCompaniesAdders_);
+    pthread_cond_broadcast(&this->_cond_mapCompaniesRemovers_);
     pthread_mutex_unlock(&(this->_mutex_CompaniesMap_));
 }
 
 void Factory::addBuyerThreadLockMap() {
     pthread_mutex_lock(&(this->_mutex_BuyerMap_));
-    while(this->_busyMapBuyer_){
+    while(this->_MapBuyersAddersWriters_ > 0 || this->_MapBuyersRemovesWriters_ > 0){
         pthread_cond_wait(&(this->_cond_mapBuyerAdders_),&(this->_mutex_BuyerMap_));
     }
-    this->_mapBuyerAddersCounter_--;
-    this->_busyMapBuyer_ = true;
+    this->_mapBuyerAddersWaitingCounter_--;
+    this->_MapBuyersAddersWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_BuyerMap_));
 }
 
-void Factory::removeBuyerThreadlockMap() {
+void Factory::buyersMapAdderUnlock() {
+    pthread_mutex_lock(&(this->_mutex_CompaniesMap_));
+    this->_MapBuyersAddersWriters_ --;
+    pthread_cond_broadcast(&this->_cond_mapCompaniesAdders_);
+    pthread_cond_broadcast(&this->_cond_mapCompaniesRemovers_);
+    pthread_mutex_unlock(&(this->_mutex_CompaniesMap_));
+}
+
+void Factory::removeBuyerThreadlockMap(int id) {
     pthread_mutex_lock(&(this->_mutex_BuyerMap_));
-    while(this->_busyMapBuyer_ || this->_mapBuyerAddersCounter_ > 0){
+    while(this->_MapBuyersAddersWriters_ > 0 || this->_MapBuyersRemovesWriters_ > 0
+          || this->_mapBuyer_.find(id) == this->_mapBuyer_.end()){
         pthread_cond_wait(&(this->_cond_mapBuyerRemovers_),&(this->_mutex_BuyerMap_));
     }
-    this->_busyMapBuyer_ = true;
+    this->_MapBuyersRemovesWriters_ ++;
     pthread_mutex_unlock(&(this->_mutex_BuyerMap_));
 }
 
-void Factory::buyersMapUnlock() {
+void Factory::buyersMapRemoverUnlock() {
     pthread_mutex_lock(&(this->_mutex_BuyerMap_));
-    this->_busyMapBuyer_ = false;
-    if (this->_mapBuyerAddersCounter_ > 0) {
-        pthread_cond_signal(&this->_cond_mapBuyerAdders_);
-        pthread_mutex_unlock(&(this->_mutex_BuyerMap_));
-        return;
-    }
-    pthread_cond_signal(&this->_cond_mapBuyerRemovers_);
+    this->_MapBuyersRemovesWriters_--;
+    pthread_cond_broadcast(&this->_cond_mapBuyerAdders_);
+    pthread_cond_broadcast(&this->_cond_mapBuyerRemovers_);
     pthread_mutex_unlock(&(this->_mutex_BuyerMap_));
 }

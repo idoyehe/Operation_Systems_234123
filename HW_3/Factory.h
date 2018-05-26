@@ -26,29 +26,33 @@ class Factory {
     pthread_mutex_t _mutex_Factory_;
 
     std::map<int, pthread_t> _mapProduce_;
-    bool _busyMapProduce_;
-    int _mapProduceAddersCounter_;
+    int _mapProduceAdderWriters_;
+    int _mapProduceRemoversWriters_;
+    int _mapProduceAddersWaitingCounter_;
     pthread_cond_t _cond_mapPruduceAdders_;
     pthread_cond_t _cond_mapProduceRemovers_;
     pthread_mutex_t _mutex_ProduceMap_;
 
     std::map<int, pthread_t> _mapThieves_;
-    bool _busyMapThieves_;
-    int _mapThievesAddersCounter_;
+    int _MapThievesAddersWriters_;
+    int _MapThievesRemovesWriters_;
+    int _mapThievesAddersWaitingCounter_;
     pthread_cond_t _cond_mapThievesAdders_;
     pthread_cond_t _cond_mapThievesRemovers_;
     pthread_mutex_t _mutex_ThievesMap_;
 
     std::map<int, pthread_t> _mapCompanies_;
-    bool _busyMapCompanies_;
-    int _mapCompaniesAddersCounter_;
+    int _MapCompaniesAddersWriters_;
+    int _MapCompaniesRemovesWriters_;
+    int _mapCompaniesAddersWaitingCounter_;
     pthread_cond_t _cond_mapCompaniesAdders_;
     pthread_cond_t _cond_mapCompaniesRemovers_;
     pthread_mutex_t _mutex_CompaniesMap_;
 
     std::map<int, pthread_t> _mapBuyer_;
-    bool _busyMapBuyer_;
-    int _mapBuyerAddersCounter_;
+    int _MapBuyersAddersWriters_;
+    int _MapBuyersRemovesWriters_;
+    int _mapBuyerAddersWaitingCounter_;
     pthread_cond_t _cond_mapBuyerAdders_;
     pthread_cond_t _cond_mapBuyerRemovers_;
     pthread_mutex_t _mutex_BuyerMap_;
@@ -67,20 +71,27 @@ class Factory {
 
 public:
     void addProduceThreadLockMap();
-    void removeProduceThreadLockMap();
-    void produceMapUnlock();
+    void removeProduceThreadLockMap(int id);
+    void produceMapAdderUnlock();
+    void produceMapRemoverUnlock();
 
     void addThiefThreadLockMap();
-    void removeThiefThreadLockMap();
-    void thievsMapUnlock();
+    void removeThiefThreadLockMap(int id);
+    void thievsMapAdderUnlock();
+    void thievsMapRemoverUnlock();
+
 
     void addCompanyThreadLockMap();
-    void removeCompanyThreadlockMap();
-    void companiesMapUnlock();
+    void removeCompanyThreadlockMap(int id);
+    void companiesAdderMapUnlock();
+    void companiesRemoverMapUnlock();
+
 
     void addBuyerThreadLockMap();
-    void removeBuyerThreadlockMap();
-    void buyersMapUnlock();
+    void removeBuyerThreadlockMap(int id);
+    void buyersMapAdderUnlock();
+    void buyersMapRemoverUnlock();
+
 
     void insertProduceIDToMap(int id, pthread_t p);
     pthread_t removeProduceIDFromMap(int id);
