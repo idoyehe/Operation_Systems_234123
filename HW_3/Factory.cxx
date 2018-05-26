@@ -219,7 +219,7 @@ int Factory::finishSimpleBuyer(unsigned int id){
     pthread_t p = this->removeBuyerIDFromMap(id);
     this->buyersMapUnlock();
 
-    void *ret_val;
+    void *ret_val = nullptr;
     pthread_join(p,&ret_val);
     assert(ret_val != nullptr);
     int return_id = *(int*)ret_val;
@@ -270,7 +270,7 @@ int Factory::finishCompanyBuyer(unsigned int id){
     pthread_t p = this->removeCompanyIDFromMap(id);
     this->companiesMapUnlock();
 
-    void *ret_val;
+    void *ret_val = nullptr;
     pthread_join(p,&ret_val);
     assert(ret_val != nullptr);
     int number_of_returns = *(int*)ret_val;
@@ -313,7 +313,7 @@ int Factory::finishThief(unsigned int fake_id){
     removeThiefThreadLockMap();
     pthread_t p = this->removeThiefIDFromMap(fake_id);
     this->thievsMapUnlock();
-    void *ret_val;
+    void *ret_val = nullptr;
     pthread_join(p,&ret_val);
     assert(ret_val != nullptr);
     int number_of_stolen = *(int*)ret_val;
