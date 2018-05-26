@@ -16,9 +16,9 @@ void passTime(int t) {
     }
 }
 
-void test_() {
+void test1() {
     Factory factory1;
-    Product products1[10];
+    Product* products1 = new Product[10];
     for (int i = 0; i < 10 ; ++i) {
         products1[i] = Product(i,i);
     }
@@ -43,11 +43,12 @@ void test_() {
     for (int i = 0; i < N ; ++i) {
         assert(factory1.finishCompanyBuyer(300+i)==0);
     }
+    delete[](products1);
 }
 
 void test2() {
     Factory factory1;
-    Product products1[40];
+    Product* products1 = new Product[40];
 
     for (int i = 0; i < 40 ; ++i) {
         Product p(i+1,i+1);
@@ -101,6 +102,7 @@ void test2() {
     assert((*it).getId()==7);
 
     factory1.startSimpleBuyer(200); //{7}
+    usleep(100000);
     factory1.startSimpleBuyer(201); //{10}
     assert(factory1.finishSimpleBuyer(201)==7);
     assert(factory1.finishSimpleBuyer(200)==10);
@@ -213,13 +215,14 @@ void test2() {
     }
 
     assert(factory1.listAvailableProducts().size()==30);
-
+    delete[](products1);
 }
 
 int main() {
-    test_();
-  //  test2();
-    printf("SUCCESS\n");
+    test1();
+    printf("TEST No 1 SUCCESS\n");
+    test2();
+    printf("TEST No 2 SUCCESS\n");
     return 0;
 }
 

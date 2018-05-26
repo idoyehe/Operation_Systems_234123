@@ -1,40 +1,7 @@
 #include "Factory.h"
 #include <cassert>
-#include <iostream>//TODO: delete after debug
-#include <string>//TODO: delete after debug
 
 #define NO_INIT -1
-
-pthread_mutex_t mutex_printer;//TODO: delete after debug
-pthread_cond_t cond_printer;//TODO: delete after debug
-int number_of_printers = 0;
-int my_time = 0;
-
-void print_lock() {//TODO: delete after debug
-    pthread_mutex_lock(&mutex_printer);//TODO: delete after debug
-    while (number_of_printers > 0) {//TODO: delete after debug
-        pthread_cond_wait(&cond_printer, &mutex_printer);//TODO: delete after debug
-    }//TODO: delete after debug
-    number_of_printers++;//TODO: delete after debug
-    pthread_mutex_unlock(&mutex_printer);//TODO: delete after debug
-}//TODO: delete after debug
-
-void print_unlock() {//TODO: delete after debug
-    pthread_mutex_lock(&mutex_printer);//TODO: delete after debug
-    number_of_printers--;//TODO: delete after debug
-    if (number_of_printers== 0) {//TODO: delete after debug
-        pthread_cond_signal(&cond_printer);//TODO: delete after debug
-    }//TODO: delete after debug
-    pthread_mutex_unlock(&mutex_printer);//TODO: delete after debug
-}//TODO: delete after debug
-
-void safePrint(const std::string str){
-    print_lock();
-    std::cout << "\n-------------------------\n";
-    std::cout << str;
-    std::cout << "\n-------------------------\n";
-    print_unlock();
-}
 
 class Buffer {
 public:
@@ -73,12 +40,10 @@ static void *buyerThreadWrapper(void * args) {
 
     buffer->factory_pointer->addBuyerThreadLockMap();
     buffer->factory_pointer->insertBuyerIDToMap(buffer->id, pthread_self());
-    safePrint("Buyer No " + std::to_string(buffer->id) + " updated map " + " time: " + std::to_string(my_time++));//TODO: delete after debug
     buffer->factory_pointer->buyersMapUnlock();
 
     int *procuct_id = new int;//transfer id product to finish function
     *procuct_id = buffer->factory_pointer->tryBuyOne();
-    safePrint("Buyer No " + std::to_string(buffer->id) + " after tryBuyOne " + " time: " + std::to_string(my_time++));//TODO: delete after debug
     delete buffer;
     pthread_exit(procuct_id);
 }
@@ -87,11 +52,9 @@ static void *companyThreadWrapper(void * args) {
 
     buffer->factory_pointer->addCompanyThreadLockMap();
     buffer->factory_pointer->insertComapnyIDToMap(buffer->id, pthread_self());
-    safePrint("company No " + std::to_string(buffer->id) + " updated map "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     buffer->factory_pointer->companiesMapUnlock();
 
     std::list<Product> company_products = buffer->factory_pointer->buyProducts(buffer->num_products);
-    safePrint("company No " + std::to_string(buffer->id) + "after buy"+ " time: " + std::to_string(my_time++));//TODO: delete after debug
 
     std::list<Product> returned_products;
     for(std::list<Product>::iterator it = company_products.begin(), end = company_products.end(); it != end; ++it){
@@ -101,7 +64,6 @@ static void *companyThreadWrapper(void * args) {
     }
     int *number_of_returned = new int;
     *number_of_returned = (int) returned_products.size();
-    safePrint("company No " + std::to_string(buffer->id) + "has "+ std::to_string(*number_of_returned)+" to return"+" time: " + std::to_string(my_time++));//TODO: delete after debug
     if((*number_of_returned) > 0) {
         buffer->factory_pointer->returnProducts(returned_products,0);
     }
@@ -114,19 +76,15 @@ static void *thiefThreadWrapper(void * args) {
 
     buffer->factory_pointer->addThiefThreadLockMap();
     buffer->factory_pointer->insertThiefIDToMap(buffer->fake_id, pthread_self());
-    safePrint("thief No " + std::to_string(buffer->fake_id) + " updated map " + " time: " + std::to_string(my_time++));//TODO: delete after debug
     buffer->factory_pointer->thievsMapUnlock();
 
     int *number_of_stolen = new int;//transfer number od stolen products to finish function
     *number_of_stolen = buffer->factory_pointer->stealProducts(buffer->num_products,(unsigned)buffer->fake_id);
     delete buffer;
-    safePrint("thief No " + std::to_string(buffer->fake_id) + " stole "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     pthread_exit(number_of_stolen);
 }
 
 Factory::Factory(){
-    pthread_cond_init(&cond_printer,nullptr);//TODO: delete after debug
-    pthread_mutex_init(&mutex_printer,nullptr);//TODO: delete after debug
 
     /*init factory variable*/
     this->_factoryIsOpen_ = true;
@@ -237,7 +195,6 @@ void Factory::startSimpleBuyer(unsigned int id){
     buffer->factory_pointer = this;
     buffer->id = id;
     this->_mapBuyerAddersCounter_++;
-    safePrint("Buyer No " + std::to_string(buffer->id) + " time: " + std::to_string(my_time++));//TODO: delete after debug
     if(pthread_create(&p,nullptr,buyerThreadWrapper,buffer) != 0){
         this->_mapBuyerAddersCounter_--;
     }
@@ -258,15 +215,12 @@ int Factory::tryBuyOne(){
 }
 
 int Factory::finishSimpleBuyer(unsigned int id){
-    safePrint("finish Buyer No " + std::to_string(id) +" waiting to map "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     this->removeBuyerThreadlockMap();
     pthread_t p = this->removeBuyerIDFromMap(id);
-    safePrint("finish Buyer No " + std::to_string(id) +" updated map "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     this->buyersMapUnlock();
 
     void *ret_val;
     pthread_join(p,&ret_val);
-    safePrint("finish Buyer No " + std::to_string(id) +" finish waiting to thread "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     assert(ret_val != nullptr);
     int return_id = *(int*)ret_val;
     delete (int*)ret_val;
@@ -284,7 +238,6 @@ void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id)
     buffer->min_value = min_value;
     buffer->id = id;
     this->_mapCompaniesAddersCounter_++;
-    safePrint("company id No " + std::to_string(id) + " "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     if(pthread_create(&p, nullptr,companyThreadWrapper,buffer) != 0){
         this->_mapCompaniesAddersCounter_--;
     }
@@ -309,7 +262,6 @@ void Factory::returnProducts(std::list<Product> products,unsigned int id){
     for(std::list<Product>::iterator it = products.begin(), end = products.end(); it != end; ++it){
         this->_lAvailableProducts_.push_back(*it);
     }
-    safePrint("company No " + std::to_string(id) + " after return "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     _writersUnlock_();
 }
 
@@ -337,7 +289,6 @@ void Factory::startThief(int num_products,unsigned int fake_id){
     pthread_t p;
     this->_counterWaitingThievs_++;
     this->_mapThievesAddersCounter_ ++;
-    safePrint("Thief id No " + std::to_string(fake_id)+ " "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     if(pthread_create(&p,nullptr,thiefThreadWrapper,buffer) != 0){
         this->_counterWaitingThievs_--;
         this->_mapThievesAddersCounter_ --;
@@ -359,15 +310,11 @@ int Factory::stealProducts(int num_products,unsigned int fake_id){
 }
 
 int Factory::finishThief(unsigned int fake_id){
-    safePrint("finish thief No " + std::to_string(fake_id) +" waiting to map "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     removeThiefThreadLockMap();
     pthread_t p = this->removeThiefIDFromMap(fake_id);
-    safePrint("finish thief No " + std::to_string(fake_id) +" updated map "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     this->thievsMapUnlock();
-
     void *ret_val;
     pthread_join(p,&ret_val);
-    safePrint("finish thief No " + std::to_string(fake_id) +" finish waiting to thread "+ " time: " + std::to_string(my_time++));//TODO: delete after debug
     assert(ret_val != nullptr);
     int number_of_stolen = *(int*)ret_val;
     delete (int*)ret_val;
@@ -396,11 +343,13 @@ void Factory::_callCondByPrio_() {
     if (this->_numberOfFactoryWriters_ == 0 && this->_numberOfFactoryReaders_ == 0) {
         pthread_cond_broadcast(&(this->_cond_Readers_));
         pthread_cond_signal(&(this->_cond_FactoryProduce_));
-        if (this->_counterWaitingThievs_ > 0) {
-            pthread_cond_signal(&(this->_cond_Thievs_));
-            return;
+        if(this->_factoryIsOpen_) {
+            if (this->_counterWaitingThievs_ > 0) {
+                pthread_cond_signal(&(this->_cond_Thievs_));
+                return;
+            }
+            pthread_cond_broadcast(&(this->_cond_Companies_));
         }
-        pthread_cond_broadcast(&(this->_cond_Companies_));
     }
 }
 
