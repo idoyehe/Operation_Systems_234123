@@ -469,7 +469,7 @@ int Factory::_buyerLockFactory_() {
     if(pthread_mutex_trylock(&(this->_mutex_Factory_)) != 0){
         return -1;
     }
-    if(!this->_factoryIsOpen_ ||this->_numberOfFactoryWriters_ > 0 || this->_numberOfFactoryReaders_ > 0){
+    if(!this->_factoryIsOpen_ || this->_numberOfFactoryWriters_ > 0 || this->_numberOfFactoryReaders_ > 0){
         pthread_mutex_unlock(&(this->_mutex_Factory_));
         return -1;
     }
