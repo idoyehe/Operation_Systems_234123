@@ -1,6 +1,6 @@
 #include "Factory.h"
-#include <assert.h>
-#include <stdio.h>
+#include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <pthread.h>
 #include <list>
