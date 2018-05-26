@@ -2,11 +2,12 @@
 #include <cassert>
 #include <cstdio>
 #include <iostream>
-#include <list>
-#include <map>
 #include <unistd.h>
+#include "test_utilities.h"
 
 
 int main(){
-    Run
+    RUN_TEST(test_comapnies_behavior);
+    RUN_TEST(test_comapnies_behavior);
+
 }
