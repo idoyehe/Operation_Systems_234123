@@ -253,13 +253,9 @@ bool TestCompany() {
     return true;
 }
 
-
-
-
 int main(){
     TestProduction();
     TestSimpleBuyer();
     TestCompany();
-
     return 0;
 }

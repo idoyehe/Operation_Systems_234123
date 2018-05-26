@@ -5,53 +5,95 @@
 #include <list>
 #include <map>
 #include "Product.h"
-#include <string>//TODO remove
 
 class Factory {
-    std::list<std::pair<Product, int>> _listStolenProducts;
-    std::list<Product> _listAvailableProducts;
+    std::list<std::pair<Product, int>> _lStolenProducts_;
+    std::list<Product> _lAvailableProducts_;
 
-    std::map<int, pthread_t> _id2threadMAP;
-    bool busy_map;
-    int map_adders_counter;
-    pthread_cond_t cond_map_adders;
-    pthread_cond_t cond_map_remover;
-    pthread_mutex_t mutex_map;
+    bool _factoryIsOpen_;
+    bool _factoryIsReturnSer_;
+    pthread_cond_t _cond_FactoryProduce_;
 
-    bool is_open;
-    bool is_return;
-    pthread_cond_t cond_factory_produce;
+    int _numberOfFactoryWriters_;
+    int _numberOfFactoryReaders_;
+    pthread_cond_t _cond_Readers_;
+
+    int _counterWaitingThievs_;
+    pthread_cond_t _cond_Thievs_;
+
+    int _counterWaitingCompanies_;//Not necessary ONLY for DEBUG
+    pthread_cond_t _cond_Companies_;
+    pthread_mutex_t _mutex_Factory_;
+
+    std::map<int, pthread_t> _mapProduce_;
+    bool _busyMapProduce_;
+    int _mapProduceAddersCounter_;
+    pthread_cond_t _cond_mapPruduceAdders_;
+    pthread_cond_t _cond_mapProduceRemovers_;
+    pthread_mutex_t _mutex_ProduceMap_;
+
+    std::map<int, pthread_t> _mapThieves_;
+    bool _busyMapThieves_;
+    int _mapThievesAddersCounter_;
+    pthread_cond_t _cond_mapThievesAdders_;
+    pthread_cond_t _cond_mapThievesRemovers_;
+    pthread_mutex_t _mutex_ThievesMap_;
+
+    std::map<int, pthread_t> _mapCompanies_;
+    bool _busyMapCompanies_;
+    int _mapCompaniesAddersCounter_;
+    pthread_cond_t _cond_mapCompaniesAdders_;
+    pthread_cond_t _cond_mapCompaniesRemovers_;
+    pthread_mutex_t _mutex_CompaniesMap_;
+
+    std::map<int, pthread_t> _mapBuyer_;
+    bool _busyMapBuyer_;
+    int _mapBuyerAddersCounter_;
+    pthread_cond_t _cond_mapBuyerAdders_;
+    pthread_cond_t _cond_mapBuyerRemovers_;
+    pthread_mutex_t _mutex_BuyerMap_;
 
 
-    int number_of_resource_writers;
-    int number_of_resource_readers;
-    pthread_cond_t cond_read;
+    void _readLockFactory_();
+    void _readUnlockFactory_();
 
-    int waiting_thieves_counter;
-    pthread_cond_t cond_thief;
-
-    int waiting_companies_counter;
-
-    pthread_cond_t cond_no_thief;
-    pthread_mutex_t mutex_general_factory;
-
-
-    void read_Lock();
-
-    void read_Unlock();
-
-    void write_lock_factory_produce();
-
-    void write_lock_thieves();
-
-    void write_lock_company(int num_products, bool return_service);
-
-    int write_lock_buyer();
-
-    void write_unlock();
+    void _produceLockFactory_();
+    void _thiefLockFactory_();
+    void _companyLockFactory_(int num_products, bool return_service);
+    int _buyerLockFactory_();
+    void _writersUnlock_();
+    void _callCondByPrio_();
 
 
 public:
+    void addProduceThreadLockMap();
+    void removeProduceThreadLockMap();
+    void produceMapUnlock();
+
+    void addThiefThreadLockMap();
+    void removeThiefThreadLockMap();
+    void thievsMapUnlock();
+
+    void addCompanyThreadLockMap();
+    void removeCompanyThreadlockMap();
+    void companiesMapUnlock();
+
+    void addBuyerThreadLockMap();
+    void removeBuyerThreadlockMap();
+    void buyersMapUnlock();
+
+    void insertProduceIDToMap(int id, pthread_t p);
+    pthread_t removeProduceIDFromMap(int id);
+
+    void insertThiefIDToMap(int id, pthread_t p);
+    pthread_t removeThiefIDFromMap(int id);
+
+    void insertComapnyIDToMap(int id, pthread_t p);
+    pthread_t removeCompanyIDFromMap(int id);
+
+    void insertBuyerIDToMap(int id, pthread_t p);
+    pthread_t removeBuyerIDFromMap(int id);
+
     Factory();
 
     ~Factory();
@@ -93,18 +135,5 @@ public:
     std::list<std::pair<Product, int>> listStolenProducts();
 
     std::list<Product> listAvailableProducts();
-
-    void adder_lock_map();
-
-    void remover_lock_map();
-
-    void unlock_map();
-
-    void insertToMap(int id, pthread_t p);
-
-    void removeFromMap(int id);
-
-    pthread_t getThreadIDMap(int id);
-
     };
 #endif // FACTORY_H_
