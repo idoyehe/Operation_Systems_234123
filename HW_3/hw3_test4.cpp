@@ -16,8 +16,7 @@ bool test_production_behavior() {
         product_batch1[i] = Product(i * batch, 10 * i * batch);
     }
 
-    candy_factory.startProduction(10, product_batch1,
-                                  100);//sanity check small production
+    candy_factory.startProduction(10, product_batch1, 100);//sanity check small production
     candy_factory.finishProduction(100);
 
     list<Product> export_available;

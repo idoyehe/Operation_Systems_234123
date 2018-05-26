@@ -18,6 +18,7 @@ bool test1() {
     }
     factory1.startProduction(10,products,100);
     factory1.finishProduction(100);
+
     std::list<Product> available=factory1.listAvailableProducts(); //{0,1,2,3,4,5,6,7,8,9}
     ASSERT_TEST(available.size()==10);
 
