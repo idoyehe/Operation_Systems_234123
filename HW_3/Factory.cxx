@@ -100,14 +100,14 @@ void Factory::startProduction(int num_products, Product* products,unsigned int i
     assert(num_products > 0);
     assert(products != nullptr);
 
-    pthread_t* p = new pthread_t;
+    pthread_t p;
     Buffer *buffer = new Buffer();//buffer to transfer args to thread
     buffer->factory_pointer = this;
     buffer->num_products = num_products;
     buffer->product_arr = products;
     buffer->id = id;
-    this->insertProduceIDToMap(id,p);
-    pthread_create(p, nullptr, _produceThreadWrapper_, buffer);
+    pthread_create(&p, nullptr, _produceThreadWrapper_, buffer);
+	this->insertProduceIDToMap(id,p);
 }
 
 void Factory::produce(int num_products, Product* products){
@@ -126,12 +126,12 @@ void Factory::finishProduction(unsigned int id){
 
 /*!!SINGLE BUYER SECTION START!!*/
 void Factory::startSimpleBuyer(unsigned int id){
-    pthread_t* p = new pthread_t;
+    pthread_t p;
     Buffer *buffer = new Buffer();//buffer to transfer args to thread
     buffer->factory_pointer = this;
     buffer->id = id;
-    this->insertBuyerIDToMap(id,p);
-    pthread_create(p,nullptr,buyerThreadWrapper,buffer);
+    pthread_create(&p,nullptr,buyerThreadWrapper,buffer);
+	this->insertBuyerIDToMap(id,p);
 }
 
 int Factory::tryBuyOne(){
@@ -162,14 +162,14 @@ int Factory::finishSimpleBuyer(unsigned int id){
 /*!!COMPANY SECTION START!!*/
 void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id) {
     assert(num_products > 0);
-    pthread_t* p = new pthread_t;
+    pthread_t p;
     Buffer *buffer = new Buffer();//buffer to transfer args to thread
     buffer->factory_pointer = this;
     buffer->num_products = num_products;
     buffer->min_value = min_value;
     buffer->id = id;
-    this->insertComapnyIDToMap(id,p);
-    pthread_create(p, nullptr, companyThreadWrapper, buffer);
+    pthread_create(&p, nullptr, companyThreadWrapper, buffer);
+	this->insertComapnyIDToMap(id,p);
 }
 
 std::list<Product> Factory::buyProducts(int num_products) {
@@ -208,19 +208,20 @@ int Factory::finishCompanyBuyer(unsigned int id){
 /*!!THIEF SECTION START!!*/
 void Factory::startThief(int num_products,unsigned int fake_id){
     assert(num_products > 0);
+	pthread_t p;
     Buffer *buffer = new Buffer();//buffer to transfer args to thread
     buffer->factory_pointer = this;
     buffer->num_products = num_products;
     buffer->fake_id = fake_id;
-    pthread_t* p = new pthread_t;
-    this->_counterWaitingThievs_++;
-    this->insertThiefIDToMap(fake_id,p);
-    pthread_create(p,nullptr,thiefThreadWrapper,buffer);
+    pthread_mutex_lock(&(this->_mutex_Factory_));
+	this->_counterWaitingThievs_++;
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
+    pthread_create(&p,nullptr,thiefThreadWrapper,buffer);
+	this->insertThiefIDToMap(fake_id,p);
 }
 
 int Factory::stealProducts(int num_products,unsigned int fake_id){
     this->_thiefLockFactory_();
-    this->_counterWaitingThievs_--;//thief enter the factory stop waiting
     int list_size =(int)this->_lAvailableProducts_.size();
     int min = (num_products > list_size) ? list_size : num_products;
     std::list<Product>::iterator it = this->_lAvailableProducts_.begin();
@@ -296,59 +297,51 @@ void Factory::openReturningService() {
     this->_callCondByPrio_();
 }
 
-void Factory::insertProduceIDToMap(int id, pthread_t *p) {
-    this->_mapProduce_.insert(std::pair<int,pthread_t*>(id,p));
+void Factory::insertProduceIDToMap(int id, pthread_t p) {
+    this->_mapProduce_.insert(std::pair<int,pthread_t>(id,p));
 }
 
 pthread_t Factory::removeProduceIDFromMap(int id) {
-    std::map<int,pthread_t*>::iterator it = this->_mapProduce_.find(id);
+    std::map<int,pthread_t>::iterator it = this->_mapProduce_.find(id);
     assert(it != this->_mapProduce_.end());
-    pthread_t *p = (*it).second;
-    pthread_t produce_thread_id = *p;
+    pthread_t produce_thread_id = (*it).second;
     this->_mapProduce_.erase(id);
-    delete (p);
     return produce_thread_id;
 }
 
-void Factory::insertThiefIDToMap(int id, pthread_t* p) {
-    this->_mapThieves_.insert(std::pair<int,pthread_t*>(id,p));
+void Factory::insertThiefIDToMap(int id, pthread_t p) {
+    this->_mapThieves_.insert(std::pair<int,pthread_t>(id,p));
 }
 
 pthread_t Factory::removeThiefIDFromMap(int id){
-    std::map<int,pthread_t*>::iterator it = this->_mapThieves_.find(id);
+    std::map<int,pthread_t>::iterator it = this->_mapThieves_.find(id);
     assert(it != this->_mapThieves_.end());
-    pthread_t *p = (*it).second;
-    pthread_t thief_thread_id = *p;
+    pthread_t thief_thread_id = (*it).second;
     this->_mapThieves_.erase(id);
-    delete (p);
     return thief_thread_id;
 }
 
-void Factory::insertComapnyIDToMap(int id, pthread_t* p) {
-    this->_mapCompanies_.insert(std::pair<int,pthread_t*>(id,p));
+void Factory::insertComapnyIDToMap(int id, pthread_t p) {
+    this->_mapCompanies_.insert(std::pair<int,pthread_t>(id,p));
 }
 
 pthread_t Factory::removeCompanyIDFromMap(int id) {
-    std::map<int,pthread_t*>::iterator it = this->_mapCompanies_.find(id);
+    std::map<int,pthread_t>::iterator it = this->_mapCompanies_.find(id);
     assert(it != this->_mapCompanies_.end());
-    pthread_t *p = (*it).second;
-    pthread_t company_thread_id = *p;
+    pthread_t company_thread_id = (*it).second;
     this->_mapCompanies_.erase(id);
-    delete (p);
     return company_thread_id;
 }
 
-void Factory::insertBuyerIDToMap(int id, pthread_t* p) {
-    this->_mapBuyer_.insert(std::pair<int,pthread_t*>(id,p));
+void Factory::insertBuyerIDToMap(int id, pthread_t p) {
+    this->_mapBuyer_.insert(std::pair<int,pthread_t>(id,p));
 }
 
 pthread_t Factory::removeBuyerIDFromMap(int id) {
-    std::map<int, pthread_t*>::iterator it = this->_mapBuyer_.find(id);
+    std::map<int, pthread_t>::iterator it = this->_mapBuyer_.find(id);
     assert(it != this->_mapBuyer_.end());
-    pthread_t *p = (*it).second;
-    pthread_t buyer_thread_id = *p;
+    pthread_t buyer_thread_id = (*it).second;
     this->_mapBuyer_.erase(id);
-    delete (p);
     return buyer_thread_id;
 }
 /*!!FACTORY CONTROL SECTION END!!*/
@@ -385,6 +378,7 @@ void Factory::_thiefLockFactory_() {
         pthread_cond_wait(&(this->_cond_Thievs_),&(this->_mutex_Factory_));
     }
     this->_numberOfFactoryWriters_++;//thief write to factory
+	this->_counterWaitingThievs_--;//thief enter the factory stop waiting
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 

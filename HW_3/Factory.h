@@ -25,10 +25,10 @@ class Factory {
     pthread_cond_t _cond_Companies_;
     pthread_mutex_t _mutex_Factory_;
 
-    std::map<int, pthread_t*> _mapProduce_;
-    std::map<int, pthread_t*> _mapBuyer_;
-    std::map<int, pthread_t*> _mapCompanies_;
-    std::map<int, pthread_t*> _mapThieves_;
+    std::map<int, pthread_t> _mapProduce_;
+    std::map<int, pthread_t> _mapBuyer_;
+    std::map<int, pthread_t> _mapCompanies_;
+    std::map<int, pthread_t> _mapThieves_;
 
 
 
@@ -50,19 +50,19 @@ class Factory {
 
 
 public:
-    void insertProduceIDToMap(int id, pthread_t* p);
+    void insertProduceIDToMap(int id, pthread_t p);
 
     pthread_t removeProduceIDFromMap(int id);
 
-    void insertThiefIDToMap(int id, pthread_t* p);
+    void insertThiefIDToMap(int id, pthread_t p);
 
     pthread_t removeThiefIDFromMap(int id);
 
-    void insertComapnyIDToMap(int id, pthread_t* p);
+    void insertComapnyIDToMap(int id, pthread_t p);
 
     pthread_t removeCompanyIDFromMap(int id);
 
-    void insertBuyerIDToMap(int id, pthread_t* p);
+    void insertBuyerIDToMap(int id, pthread_t p);
 
     pthread_t removeBuyerIDFromMap(int id);
 
