@@ -7,6 +7,7 @@
 #include "Product.h"
 
 class Factory {
+public:
     std::list<std::pair<Product, int>> _lStolenProducts_;
     std::list<Product> _lAvailableProducts_;
 
@@ -46,7 +47,7 @@ class Factory {
 
     void _writersUnlock_();
 
-    void _callCondByPrio_();
+    void _callWaitingCond_();
 
 
 public:

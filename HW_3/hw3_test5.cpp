@@ -3,11 +3,10 @@
 // I need the main for testing
 //
 
+#include <iostream>
 #include "Factory.h"
 #include "test_utilities.h"
 #include <unistd.h>
-#include <iostream>
-
 
 static void printProductList(std::list<Product> l){
     if(l.size() == 0){
@@ -383,10 +382,10 @@ bool testAccessOrder(){
     f.finishProduction(prod_id);
 
     f.openFactory();
+
     ASSERT_TEST(f.finishThief(thief_id) == 2);
     int compBuyerRes = f.finishCompanyBuyer(comp_id);
     ASSERT_TEST(compBuyerRes == 1);
-
     //Now hopefully everything is correct
     std::list<Product> p_list = f.listAvailableProducts();
     ASSERT_TEST(p_list.size() == 1);
@@ -487,10 +486,7 @@ bool testAccessOrder(){
     f.startSimpleBuyer(buyer_id);
     f.startSimpleBuyer(buyer_id+1);
     f.startSimpleBuyer(buyer_id+2);
-
-    unsigned int microseconds=100000;
-    usleep(microseconds);
-
+    usleep(300000); //So that all buyers will try and go away
     f.openFactory();
     ASSERT_TEST(f.finishSimpleBuyer(buyer_id) == -1);
     ASSERT_TEST(f.finishSimpleBuyer(buyer_id+1) == -1);

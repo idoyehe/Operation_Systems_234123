@@ -262,39 +262,44 @@ std::list<Product> Factory::listAvailableProducts(){
 /*!!READERS SECTION END!!*/
 
 /*!!FACTORY CONTROL SECTION START!!*/
-void Factory::_callCondByPrio_() {
-    if (this->_numberOfFactoryWriters_ == 0 && this->_numberOfFactoryReaders_ == 0) {
-        pthread_cond_broadcast(&(this->_cond_Readers_));
-        pthread_cond_broadcast(&(this->_cond_FactoryProduce_));
-        if(this->_factoryIsOpen_) {
-            if (this->_counterWaitingThievs_ > 0) {
-                pthread_cond_broadcast(&(this->_cond_Thievs_));
-                return;
-            }
-            pthread_cond_broadcast(&(this->_cond_Companies_));
-        }
-    }
+void Factory::_callWaitingCond_() {
+    pthread_cond_broadcast(&(this->_cond_Readers_));
+    pthread_cond_broadcast(&(this->_cond_FactoryProduce_));
+    pthread_cond_broadcast(&(this->_cond_Thievs_));
+    pthread_cond_broadcast(&(this->_cond_Companies_));
 }
+
 
 void Factory::closeFactory(){
     //assuming all other thief, company, buyers threads terminated
+    pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_factoryIsOpen_ = false;
+    this->_callWaitingCond_();
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
+
 }
 
 void Factory::openFactory() {
+    pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_factoryIsOpen_ = true;
-    this->_callCondByPrio_();
+    this->_callWaitingCond_();
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
 
 }
 
 void Factory::closeReturningService(){
     //assuming all other company threads terminated
+    pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_factoryIsReturnSer_ = false;
+    this->_callWaitingCond_();
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
 void Factory::openReturningService() {
+    pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_factoryIsReturnSer_ = true;
-    this->_callCondByPrio_();
+    this->_callWaitingCond_();
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
 void Factory::insertProduceIDToMap(int id, pthread_t p) {
@@ -359,7 +364,7 @@ void Factory::_readLockFactory_() {
 void Factory::_readUnlockFactory_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_numberOfFactoryReaders_--;
-    this->_callCondByPrio_();
+    this->_callWaitingCond_();
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
@@ -374,11 +379,11 @@ void Factory::_produceLockFactory_() {
 
 void Factory::_thiefLockFactory_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
-    while(!this->_factoryIsOpen_|| this->_numberOfFactoryWriters_ > 0 || this->_numberOfFactoryReaders_ > 0){
-        pthread_cond_wait(&(this->_cond_Thievs_),&(this->_mutex_Factory_));
+    while(!this->_factoryIsOpen_|| this->_numberOfFactoryWriters_ > 0 || this->_numberOfFactoryReaders_ > 0) {
+        pthread_cond_wait(&(this->_cond_Thievs_), &(this->_mutex_Factory_));
     }
     this->_numberOfFactoryWriters_++;//thief write to factory
-	this->_counterWaitingThievs_--;//thief enter the factory stop waiting
+    this->_counterWaitingThievs_--;//thief enter the factory stop waiting
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
@@ -411,7 +416,7 @@ int Factory::_buyerLockFactory_() {
 void Factory::_writersUnlock_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_numberOfFactoryWriters_--;
-    this->_callCondByPrio_();
+    this->_callWaitingCond_();
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 /*!!FACTORY MUTEX SECTION END!!*/
