@@ -101,11 +101,12 @@ void test2() {
     assert((*it++).getId()==10);
     assert((*it).getId()==7);
 
+	usleep(100000);//Uri added
     factory1.startSimpleBuyer(200); //{7}
     usleep(100000);
     factory1.startSimpleBuyer(201); //{10}
+	assert(factory1.finishSimpleBuyer(200)==10);
     assert(factory1.finishSimpleBuyer(201)==7);
-    assert(factory1.finishSimpleBuyer(200)==10);
 
     factory1.startProduction(15,products1,100);
     factory1.finishProduction(100);
@@ -136,7 +137,7 @@ void test2() {
     factory1.startThief(1,402);
 
     factory1.openFactory();
-
+	usleep(300000);//Uri added
     factory1.startProduction(31,products1,100);
     factory1.finishProduction(100);
     for (int i = 0; i < 10 ; ++i) {
