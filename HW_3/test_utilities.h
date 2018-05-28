@@ -48,8 +48,7 @@
 								result = false; \
 							}
 
-#define RUN_TEST(name)  printf("\n========================\n"); \
-						printf("\nRunning %s... \n", #name); \
+#define RUN_TEST(name)  printf("\nRunning %s... \n", #name); \
 						if (!name()) { \
 							printf("%s [FAILED]\n", #name);		\
 							return false; \
