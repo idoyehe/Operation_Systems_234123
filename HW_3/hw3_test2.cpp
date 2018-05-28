@@ -23,12 +23,10 @@ bool test1() {
     ASSERT_TEST(available.size()==10);
 
     factory1.startSimpleBuyer(200);
+    sleep(1);
     factory1.startSimpleBuyer(201);
-    int t1=factory1.finishSimpleBuyer(201);
-    int t2= factory1.finishSimpleBuyer(200);
-    //ASSERT_TEST(t1==0 || t1==1);
-    ASSERT_TEST(t2==0 || t2==1);
-   // ASSERT_TEST(factory1.finishSimpleBuyer(200)==1);
+    ASSERT_TEST(factory1.finishSimpleBuyer(201) == 1);
+    ASSERT_TEST(factory1.finishSimpleBuyer(200) == 0);
     available=factory1.listAvailableProducts(); //{2,3,4,5,6,7,8,9}
     ASSERT_TEST(available.size()==8);
 
@@ -79,6 +77,7 @@ bool test2(){
     ASSERT_TEST(available.size()==7);
 
     factory1.startCompanyBuyer(10,0,201);
+    sleep(1);
     factory1.startSimpleBuyer(301);
     ASSERT_TEST(factory1.finishSimpleBuyer(301)==6);
 
