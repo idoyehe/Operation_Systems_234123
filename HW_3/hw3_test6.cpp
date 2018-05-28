@@ -176,6 +176,8 @@ bool smallSynchronizationTest()
     f->startCompanyBuyer(2, 10, 5);
     f->startCompanyBuyer(1, 10, 6);
     f->openFactory();
+    f->finishThief(3);
+    f->finishThief(4);
     assert(f->finishCompanyBuyer(1) == 4);
     assert(f->finishCompanyBuyer(2) == 3);
     assert(f->finishCompanyBuyer(5) == 2);
