@@ -12,6 +12,7 @@ public:
     int id;
     int fake_id;
     int min_value;
+    int ret_val;
 
     Buffer() :
             factory_pointer(nullptr),
@@ -20,6 +21,7 @@ public:
             num_products(NO_INIT),
             id(NO_INIT),
             fake_id(NO_INIT),
+            ret_val(NO_INIT),
             min_value(NO_INIT) {}
 };
 
@@ -27,17 +29,14 @@ static void* _produceThreadWrapper_(void *args) {
     Buffer* buffer = (Buffer*)args;
 
     buffer->factory_pointer->produce(buffer->num_products,buffer->product_arr);
-    delete buffer;
-    pthread_exit(nullptr);
+    pthread_exit((void*)buffer);
 }
 
 static void *buyerThreadWrapper(void * args) {
     Buffer* buffer = (Buffer*)args;
 
-    int *procuct_id = new int;//transfer id product to finish function
-    *procuct_id = buffer->factory_pointer->tryBuyOne();
-    delete buffer;
-    pthread_exit(procuct_id);
+    buffer->ret_val = buffer->factory_pointer->tryBuyOne();
+    pthread_exit((void*)buffer);
 }
 static void *companyThreadWrapper(void * args) {
     Buffer* buffer = (Buffer*)args;
@@ -49,22 +48,18 @@ static void *companyThreadWrapper(void * args) {
             returned_products.push_back((*it));
         }
     }
-    int *number_of_returned = new int;
-    *number_of_returned = (int) returned_products.size();
-    if((*number_of_returned) > 0) {
+    buffer->ret_val = (int) returned_products.size();
+    if(buffer->ret_val > 0) {
         buffer->factory_pointer->returnProducts(returned_products,0);
     }
-    delete buffer;
-    pthread_exit(number_of_returned);
+    pthread_exit((void*)buffer);
 }
 
 static void *thiefThreadWrapper(void * args) {
     Buffer* buffer = (Buffer*)args;
 
-    int *number_of_stolen = new int;//transfer number od stolen products to finish function
-    *number_of_stolen = buffer->factory_pointer->stealProducts(buffer->num_products,(unsigned)buffer->fake_id);
-    delete buffer;
-    pthread_exit(number_of_stolen);
+    buffer->ret_val = buffer->factory_pointer->stealProducts(buffer->num_products,(unsigned)buffer->fake_id);
+    pthread_exit((void*)buffer);
 }
 
 Factory::Factory(){
@@ -120,7 +115,10 @@ void Factory::produce(int num_products, Product* products){
 
 void Factory::finishProduction(unsigned int id){
     pthread_t p = this->removeProduceIDFromMap(id);
-    pthread_join(p,nullptr);
+    void *buffer = nullptr;
+    pthread_join(p,&buffer);
+    assert(buffer != nullptr);
+    delete ((Buffer*)buffer);
 }
 /*!!PRODUCE SECTION END!!*/
 
@@ -150,11 +148,11 @@ int Factory::tryBuyOne(){
 
 int Factory::finishSimpleBuyer(unsigned int id){
     pthread_t p = this->removeBuyerIDFromMap(id);
-    void *ret_val = nullptr;
-    pthread_join(p,&ret_val);
-    assert(ret_val != nullptr);
-    int return_id = *(int*)ret_val;
-    delete (int*)ret_val;
+    void *buffer = nullptr;
+    pthread_join(p,&buffer);
+    assert(buffer != nullptr);
+    int return_id = ((Buffer*)buffer)->ret_val;;
+    delete ((Buffer*)buffer);
     return return_id;
 }
 /*!!SINGLE BUYER SECTION END!!*/
@@ -196,11 +194,11 @@ void Factory::returnProducts(std::list<Product> products,unsigned int id){
 
 int Factory::finishCompanyBuyer(unsigned int id){
     pthread_t p = this->removeCompanyIDFromMap(id);
-    void *ret_val = nullptr;
-    pthread_join(p,&ret_val);
-    assert(ret_val != nullptr);
-    int number_of_returns = *(int*)ret_val;
-    delete (int*)ret_val;
+    void *buffer = nullptr;
+    pthread_join(p,&buffer);
+    assert(buffer != nullptr);
+    int number_of_returns = ((Buffer*)buffer)->ret_val;
+    delete ((Buffer*)buffer);
     return number_of_returns;
 }
 /*!!COMPANY SECTION END!!*/
@@ -236,11 +234,11 @@ int Factory::stealProducts(int num_products,unsigned int fake_id){
 
 int Factory::finishThief(unsigned int fake_id){
     pthread_t p = this->removeThiefIDFromMap(fake_id);
-    void *ret_val = nullptr;
-    pthread_join(p,&ret_val);
-    assert(ret_val != nullptr);
-    int number_of_stolen = *(int*)ret_val;
-    delete (int*)ret_val;
+    void *buffer = nullptr;
+    pthread_join(p,&buffer);
+    assert(buffer != nullptr);
+    int number_of_stolen = ((Buffer*)buffer)->ret_val;
+    delete ((Buffer*)buffer);
     return number_of_stolen;
 }
 /*!!THIEF SECTION END!!*/

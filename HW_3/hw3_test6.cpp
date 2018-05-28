@@ -66,6 +66,7 @@ bool companyTest()
     f.startProduction(2, pro, 2); // The company should start buying
     ASSERT_TEST(f.finishCompanyBuyer(1) == 0); // I had a bug here, forgot to broadcast after
                               // making new products
+    f.finishProduction(2);
     list = f.listAvailableProducts();
     ASSERT_TEST(list.size() == 0);
     // Closing the factory, adding a new company, adding new products and then opening
@@ -172,6 +173,7 @@ bool smallSynchronizationTest()
     f.startCompanyBuyer(1, 10, 6);
     f.openFactory();
     f.finishThief(4);
+    f.finishThief(3);
     ASSERT_TEST(f.finishCompanyBuyer(1) == 4);
     ASSERT_TEST(f.finishCompanyBuyer(2) == 3);
     ASSERT_TEST(f.finishCompanyBuyer(5) == 2);
