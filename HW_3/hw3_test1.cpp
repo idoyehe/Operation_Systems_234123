@@ -7,15 +7,6 @@
 #include "test_utilities.h"
 #define N 75
 
-void passTime(int t) {
-    time_t t_start_1,t_end_1;
-    time(&t_start_1);
-    time(&t_end_1);
-    while(t_end_1 - t_start_1 < t) {
-        time(&t_end_1);
-    }
-}
-
 void test1() {
     Factory factory1;
     Product* products1 = new Product[10];
@@ -32,6 +23,7 @@ void test1() {
     }
 
     for (int i = 0; i < N ; ++i) {
+        factory1.finishProduction(100+i);
         int num_of_stole = factory1.finishThief(400+i);
         assert(num_of_stole == 1 || num_of_stole == 2 || num_of_stole == 0);
     }
@@ -41,6 +33,7 @@ void test1() {
     }
 
     for (int i = 0; i < N ; ++i) {
+        factory1.finishProduction(100+i);
         assert(factory1.finishCompanyBuyer(300+i)==0);
     }
     delete[](products1);
@@ -51,8 +44,7 @@ void test2() {
     Product* products1 = new Product[40];
 
     for (int i = 0; i < 40 ; ++i) {
-        Product p(i+1,i+1);
-        products1[i] = p;
+        products1[i] = Product(i+1,i+1);
     }
 
     factory1.startProduction(10,products1,100);
@@ -206,11 +198,12 @@ void test2() {
     factory1.startCompanyBuyer(3,100,308);
     factory1.startCompanyBuyer(3,100,309);
     factory1.startThief(1,405);
-    passTime(2);
+    sleep(1);
+    assert(factory1.finishThief(405) == 1);
+    assert(factory1.finishThief(406) == 1);
     assert(factory1.listAvailableProducts().size()==0);
 
     factory1.openReturningService();
-
     for (int i = 0; i < 10 ; ++i) {
         assert(factory1.finishCompanyBuyer(300+i)==3);
     }
