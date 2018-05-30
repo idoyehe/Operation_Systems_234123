@@ -9,21 +9,30 @@
 class Factory {
 public:
     std::list<std::pair<Product, int>> _lStolenProducts_;
-    std::list<Product> _lAvailableProducts_;
+    int _numberOfStolenWriters_;
+    int _numberOfStolenReaders_;
+    pthread_cond_t _cond_StolenReaders_;
+    pthread_cond_t _cond_StolenWriters_;
+    pthread_mutex_t _mutex_Stolen_;
+
+
 
     bool _factoryIsOpen_;
     bool _factoryIsReturnSer_;
-    pthread_cond_t _cond_FactoryProduce_;
 
     int _numberOfFactoryWriters_;
     int _numberOfFactoryReaders_;
-    pthread_cond_t _cond_Readers_;
+    pthread_cond_t _cond_AvailableReaders_;
+    std::list<Product> _lAvailableProducts_;
+
+    pthread_cond_t _cond_FactoryProduce_;
 
     int _counterWaitingThievs_;
     pthread_cond_t _cond_Thievs_;
 
     int _counterWaitingCompanies_;//Not necessary ONLY for DEBUG
-    pthread_cond_t _cond_Companies_;
+    pthread_cond_t _cond_CompaniesBuy_;
+    pthread_cond_t _cond_CompaniesReturn_;
     pthread_mutex_t _mutex_Factory_;
 
     std::map<int, pthread_t> _mapProduce_;
@@ -31,17 +40,25 @@ public:
     std::map<int, pthread_t> _mapCompanies_;
     std::map<int, pthread_t> _mapThieves_;
 
+    void _writeStolenLockFactory_();
 
+    void _writeStolenUnlockFactory_();
 
-    void _readLockFactory_();
+    void _readAvailableLockFactory_();
 
-    void _readUnlockFactory_();
+    void _readStolenLockFactory_();
+
+    void _readAvailableUnlockFactory_();
+
+    void _readStolenUnlockFactory_();
 
     void _produceLockFactory_();
 
     void _thiefLockFactory_();
 
-    void _companyLockFactory_(int num_products, bool return_service);
+    void _companyBuyLockFactory_(int num_products);
+
+    void _companyReturnLockFactory_();
 
     int _buyerLockFactory_();
 

@@ -64,30 +64,48 @@ static void *thiefThreadWrapper(void * args) {
 
 Factory::Factory(){
 
+    /*init threads env of stolen*/
+
+    this->_numberOfStolenReaders_ = 0;
+    this->_numberOfStolenWriters_ = 0;
+    pthread_cond_init(&(this->_cond_StolenReaders_),nullptr);
+    pthread_cond_init(&(this->_cond_StolenWriters_),nullptr);
+    pthread_mutex_init(&(this->_mutex_Stolen_), nullptr);
+    ;
+
     /*init factory variable*/
     this->_factoryIsOpen_ = true;
     this->_factoryIsReturnSer_ = true;
-    pthread_cond_init(&(this->_cond_FactoryProduce_),nullptr);
 
     this->_numberOfFactoryWriters_ = 0;
     this->_numberOfFactoryReaders_ = 0;
-    pthread_cond_init(&(this->_cond_Readers_),nullptr);
+    pthread_cond_init(&(this->_cond_AvailableReaders_),nullptr);
+
+    pthread_cond_init(&(this->_cond_FactoryProduce_),nullptr);
 
     this->_counterWaitingThievs_ = 0;
     pthread_cond_init(&(this->_cond_Thievs_),nullptr);
 
     this-> _counterWaitingCompanies_ = 0;
-    pthread_cond_init(&(this->_cond_Companies_),nullptr);
+    pthread_cond_init(&(this->_cond_CompaniesBuy_),nullptr);
+    pthread_cond_init(&(this->_cond_CompaniesReturn_),nullptr);
 
     pthread_mutex_init(&(this->_mutex_Factory_), nullptr);
     }
 
 Factory::~Factory() {
+    /*destroy threads env of stolen*/
+
+    pthread_cond_destroy(&(this->_cond_StolenReaders_));
+    pthread_cond_destroy(&(this->_cond_StolenWriters_));
+    pthread_mutex_destroy(&(this->_mutex_Stolen_));
     /*destroy threads env of factory*/
+
+    pthread_cond_destroy(&(this->_cond_AvailableReaders_));
     pthread_cond_destroy(&(this->_cond_FactoryProduce_));
-    pthread_cond_destroy(&(this->_cond_Readers_));
     pthread_cond_destroy(&(this->_cond_Thievs_));
-    pthread_cond_destroy(&(this->_cond_Companies_));
+    pthread_cond_destroy(&(this->_cond_CompaniesBuy_));
+    pthread_cond_destroy(&(this->_cond_CompaniesReturn_));
     pthread_mutex_destroy(&(this->_mutex_Factory_));
 }
 /*!!PRODUCE SECTION START!!*/
@@ -171,21 +189,19 @@ void Factory::startCompanyBuyer(int num_products, int min_value,unsigned int id)
 }
 
 std::list<Product> Factory::buyProducts(int num_products) {
-    _companyLockFactory_(num_products, false);//sending false because company NOT return products
+    _companyBuyLockFactory_(num_products);
     assert(num_products <= (int) _lAvailableProducts_.size());
-    std::list<Product>::iterator it = this->_lAvailableProducts_.begin();
     std::list<Product> company_products = std::list<Product>();
     for(int i = 0; i < num_products ; i++){
-        company_products.push_back(*(it));//copy the product to company
+        company_products.push_back(this->_lAvailableProducts_.front());//copy the product to company
         this->_lAvailableProducts_.pop_front();//pop the product
-        it = this->_lAvailableProducts_.begin();//reinitialize iterator
     }
     _writersUnlock_();
     return company_products;
 }
 
 void Factory::returnProducts(std::list<Product> products,unsigned int id){
-    _companyLockFactory_(NO_INIT, true);// sending negative number to remove dependency in num_product
+    _companyReturnLockFactory_();
     for(std::list<Product>::iterator it = products.begin(), end = products.end(); it != end; ++it){
         this->_lAvailableProducts_.push_back(*it);
     }
@@ -218,17 +234,27 @@ void Factory::startThief(int num_products,unsigned int fake_id){
 	this->insertThiefIDToMap(fake_id,p);
 }
 
-int Factory::stealProducts(int num_products,unsigned int fake_id){
+int Factory::stealProducts(int num_products,unsigned int fake_id) {
     this->_thiefLockFactory_();
-    int list_size =(int)this->_lAvailableProducts_.size();
+    int list_size = (int) this->_lAvailableProducts_.size();
     int min = (num_products > list_size) ? list_size : num_products;
-    std::list<Product>::iterator it = this->_lAvailableProducts_.begin();
-    for(int i = 0; i < min ; i++){
-        this->_lStolenProducts_.push_back(std::pair<Product,int>(*(it),fake_id));
+    if (min <= 0) {
+        this->_writersUnlock_();
+        return min;
+    }
+    std::list<std::pair<Product, int>> thief_stolen;
+    for (int i = 0; i < min; i++) {
+        thief_stolen.push_back(std::pair<Product, int>(this->_lAvailableProducts_.front(), fake_id));
         this->_lAvailableProducts_.pop_front();
-        it = this->_lAvailableProducts_.begin();
     }
     this->_writersUnlock_();
+
+    this->_writeStolenLockFactory_();
+    while (!thief_stolen.empty()){
+        this->_lStolenProducts_.push_back(thief_stolen.front());
+        thief_stolen.pop_front();
+    }
+    this->_writeStolenUnlockFactory_();
     return min;
 }
 
@@ -245,26 +271,35 @@ int Factory::finishThief(unsigned int fake_id){
 
 /*!!READERS SECTION START!!*/
 std::list<std::pair<Product, int>> Factory::listStolenProducts(){
-    _readLockFactory_();
+    this->_readStolenLockFactory_();
     std::list<std::pair<Product, int>> copy = this->_lStolenProducts_;
-    _readUnlockFactory_();
+    this->_readStolenUnlockFactory_();
     return copy;
 }
 
-std::list<Product> Factory::listAvailableProducts(){
-    _readLockFactory_();
+std::list<Product> Factory::listAvailableProducts() {
+    this->_readAvailableLockFactory_();
     std::list<Product> copy = this->_lAvailableProducts_;
-    _readUnlockFactory_();
+    this->_readAvailableUnlockFactory_();
     return copy;
 }
 /*!!READERS SECTION END!!*/
 
 /*!!FACTORY CONTROL SECTION START!!*/
 void Factory::_callWaitingCond_() {
-    pthread_cond_broadcast(&(this->_cond_Readers_));
-    pthread_cond_broadcast(&(this->_cond_FactoryProduce_));
-    pthread_cond_broadcast(&(this->_cond_Thievs_));
-    pthread_cond_broadcast(&(this->_cond_Companies_));
+    pthread_cond_broadcast(&(this->_cond_AvailableReaders_));
+    pthread_cond_broadcast(&(this->_cond_StolenReaders_));
+    pthread_cond_signal(&(this->_cond_FactoryProduce_));
+    if(this->_factoryIsOpen_){
+        if(this->_counterWaitingThievs_ > 0){
+            pthread_cond_signal(&(this->_cond_Thievs_));
+            return;
+        }
+        if(this->_factoryIsReturnSer_){
+            pthread_cond_signal(&(this->_cond_CompaniesReturn_));
+        }
+        pthread_cond_broadcast(&(this->_cond_CompaniesBuy_));
+    }
 }
 
 
@@ -350,20 +385,58 @@ pthread_t Factory::removeBuyerIDFromMap(int id) {
 /*!!FACTORY CONTROL SECTION END!!*/
 
 /*!!FACTORY MUTEX SECTION START!!*/
-void Factory::_readLockFactory_() {
+void Factory::_readAvailableLockFactory_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
     while(this->_numberOfFactoryWriters_ > 0){
-        pthread_cond_wait(&(this->_cond_Readers_),&(this->_mutex_Factory_));
+        pthread_cond_wait(&(this->_cond_AvailableReaders_),&(this->_mutex_Factory_));
     }
     this->_numberOfFactoryReaders_++;
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
-void Factory::_readUnlockFactory_() {
+
+void Factory::_readAvailableUnlockFactory_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_numberOfFactoryReaders_--;
     this->_callWaitingCond_();
     pthread_mutex_unlock(&(this->_mutex_Factory_));
+}
+
+void Factory::_readStolenLockFactory_() {
+    pthread_mutex_lock(&(this->_mutex_Stolen_));
+    while(this->_numberOfStolenWriters_ > 0){
+        pthread_cond_wait(&(this->_cond_StolenReaders_),&(this->_mutex_Stolen_));
+    }
+    this->_numberOfStolenReaders_++;
+    pthread_mutex_unlock(&(this->_mutex_Stolen_));
+}
+
+void Factory::_readStolenUnlockFactory_(){
+    pthread_mutex_lock(&(this->_mutex_Stolen_));
+    this->_numberOfStolenReaders_--;
+    if(this->_numberOfStolenReaders_ == 0){
+        pthread_cond_signal(&(this->_cond_StolenWriters_));
+    }
+    pthread_mutex_unlock(&(this->_mutex_Stolen_));
+}
+
+void Factory::_writeStolenLockFactory_() {
+    pthread_mutex_lock(&(this->_mutex_Stolen_));
+    while(this->_numberOfStolenWriters_ > 0 || this->_numberOfStolenReaders_ > 0){
+        pthread_cond_wait(&(this->_cond_StolenWriters_),&(this->_mutex_Stolen_));
+    }
+    this->_numberOfStolenWriters_++;
+    pthread_mutex_unlock(&(this->_mutex_Stolen_));
+}
+
+void Factory::_writeStolenUnlockFactory_(){
+    pthread_mutex_lock(&(this->_mutex_Stolen_));
+    this->_numberOfStolenWriters_--;
+    if(this->_numberOfStolenWriters_ == 0){
+        pthread_cond_broadcast(&(this->_cond_StolenReaders_));
+        pthread_cond_signal(&(this->_cond_StolenWriters_));
+    }
+    pthread_mutex_unlock(&(this->_mutex_Stolen_));
 }
 
 void Factory::_produceLockFactory_() {
@@ -385,13 +458,24 @@ void Factory::_thiefLockFactory_() {
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
-void Factory::_companyLockFactory_(int num_products, bool want_to_return) {
+void Factory::_companyBuyLockFactory_(int num_products) {
     pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_counterWaitingCompanies_++;
-    while(!this->_factoryIsOpen_ || this->_counterWaitingThievs_ > 0 || (num_products >(int)this->_lAvailableProducts_.size())
-          || (want_to_return && !(this->_factoryIsReturnSer_)) ||
-          (this->_numberOfFactoryWriters_ > 0) || (this->_numberOfFactoryReaders_ > 0)){
-        pthread_cond_wait(&(this->_cond_Companies_),&(this->_mutex_Factory_));
+    while(!this->_factoryIsOpen_ || this->_counterWaitingThievs_ > 0 || (this->_numberOfFactoryWriters_ > 0) || (this->_numberOfFactoryReaders_ > 0)
+          || (num_products > (int)this->_lAvailableProducts_.size())){
+        pthread_cond_wait(&(this->_cond_CompaniesBuy_),&(this->_mutex_Factory_));
+    }
+    this->_counterWaitingCompanies_--;//company enter the factory
+    this->_numberOfFactoryWriters_++;//company write to factory
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
+}
+
+void Factory::_companyReturnLockFactory_() {
+    pthread_mutex_lock(&(this->_mutex_Factory_));
+    this->_counterWaitingCompanies_++;
+    while(!this->_factoryIsOpen_ || !this->_factoryIsReturnSer_ || this->_counterWaitingThievs_ > 0
+          || (this->_numberOfFactoryWriters_ > 0) || (this->_numberOfFactoryReaders_ > 0)){
+        pthread_cond_wait(&(this->_cond_CompaniesReturn_),&(this->_mutex_Factory_));
     }
     this->_counterWaitingCompanies_--;//company enter the factory
     this->_numberOfFactoryWriters_++;//company write to factory
@@ -417,4 +501,5 @@ void Factory::_writersUnlock_() {
     this->_callWaitingCond_();
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
+
 /*!!FACTORY MUTEX SECTION END!!*/
