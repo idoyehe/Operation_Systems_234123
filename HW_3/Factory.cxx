@@ -238,14 +238,9 @@ int Factory::stealProducts(int num_products,unsigned int fake_id) {
         this->_writersUnlock_();
         return min;
     }
-    std::list<std::pair<Product, int>> thief_stolen;
     for (int i = 0; i < min; i++) {
-        thief_stolen.push_back(std::pair<Product, int>(this->_lAvailableProducts_.front(), fake_id));
+        this->_lStolenProducts_.push_back(std::pair<Product, int>(this->_lAvailableProducts_.front(), fake_id));
         this->_lAvailableProducts_.pop_front();
-    }
-    while (!thief_stolen.empty()){
-        this->_lStolenProducts_.push_back(thief_stolen.front());
-        thief_stolen.pop_front();
     }
     this->_writersUnlock_();
     return min;
