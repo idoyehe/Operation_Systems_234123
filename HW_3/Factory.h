@@ -9,13 +9,9 @@
 class Factory {
 public:
     std::list<std::pair<Product, int>> _lStolenProducts_;
-    int _numberOfStolenWriters_;
+    bool _stolenWriters_;
     int _numberOfStolenReaders_;
     pthread_cond_t _cond_StolenReaders_;
-    pthread_cond_t _cond_StolenWriters_;
-    pthread_mutex_t _mutex_Stolen_;
-
-
 
     bool _factoryIsOpen_;
     bool _factoryIsReturnSer_;
@@ -39,10 +35,6 @@ public:
     std::map<int, pthread_t> _mapBuyer_;
     std::map<int, pthread_t> _mapCompanies_;
     std::map<int, pthread_t> _mapThieves_;
-
-    void _writeStolenLockFactory_();
-
-    void _writeStolenUnlockFactory_();
 
     void _readAvailableLockFactory_();
 

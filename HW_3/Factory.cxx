@@ -67,10 +67,8 @@ Factory::Factory(){
     /*init threads env of stolen*/
 
     this->_numberOfStolenReaders_ = 0;
-    this->_numberOfStolenWriters_ = 0;
+    this->_stolenWriters_ = false;
     pthread_cond_init(&(this->_cond_StolenReaders_),nullptr);
-    pthread_cond_init(&(this->_cond_StolenWriters_),nullptr);
-    pthread_mutex_init(&(this->_mutex_Stolen_), nullptr);
     ;
 
     /*init factory variable*/
@@ -97,8 +95,6 @@ Factory::~Factory() {
     /*destroy threads env of stolen*/
 
     pthread_cond_destroy(&(this->_cond_StolenReaders_));
-    pthread_cond_destroy(&(this->_cond_StolenWriters_));
-    pthread_mutex_destroy(&(this->_mutex_Stolen_));
     /*destroy threads env of factory*/
 
     pthread_cond_destroy(&(this->_cond_AvailableReaders_));
@@ -247,14 +243,11 @@ int Factory::stealProducts(int num_products,unsigned int fake_id) {
         thief_stolen.push_back(std::pair<Product, int>(this->_lAvailableProducts_.front(), fake_id));
         this->_lAvailableProducts_.pop_front();
     }
-    this->_writersUnlock_();
-
-    this->_writeStolenLockFactory_();
     while (!thief_stolen.empty()){
         this->_lStolenProducts_.push_back(thief_stolen.front());
         thief_stolen.pop_front();
     }
-    this->_writeStolenUnlockFactory_();
+    this->_writersUnlock_();
     return min;
 }
 
@@ -403,40 +396,21 @@ void Factory::_readAvailableUnlockFactory_() {
 }
 
 void Factory::_readStolenLockFactory_() {
-    pthread_mutex_lock(&(this->_mutex_Stolen_));
-    while(this->_numberOfStolenWriters_ > 0){
-        pthread_cond_wait(&(this->_cond_StolenReaders_),&(this->_mutex_Stolen_));
+    pthread_mutex_lock(&(this->_mutex_Factory_));
+    while(this->_stolenWriters_){
+        pthread_cond_wait(&(this->_cond_StolenReaders_),&(this->_mutex_Factory_));
     }
     this->_numberOfStolenReaders_++;
-    pthread_mutex_unlock(&(this->_mutex_Stolen_));
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
 void Factory::_readStolenUnlockFactory_(){
-    pthread_mutex_lock(&(this->_mutex_Stolen_));
+    pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_numberOfStolenReaders_--;
     if(this->_numberOfStolenReaders_ == 0){
-        pthread_cond_signal(&(this->_cond_StolenWriters_));
+        pthread_cond_signal(&(this->_cond_Thievs_));
     }
-    pthread_mutex_unlock(&(this->_mutex_Stolen_));
-}
-
-void Factory::_writeStolenLockFactory_() {
-    pthread_mutex_lock(&(this->_mutex_Stolen_));
-    while(this->_numberOfStolenWriters_ > 0 || this->_numberOfStolenReaders_ > 0){
-        pthread_cond_wait(&(this->_cond_StolenWriters_),&(this->_mutex_Stolen_));
-    }
-    this->_numberOfStolenWriters_++;
-    pthread_mutex_unlock(&(this->_mutex_Stolen_));
-}
-
-void Factory::_writeStolenUnlockFactory_(){
-    pthread_mutex_lock(&(this->_mutex_Stolen_));
-    this->_numberOfStolenWriters_--;
-    if(this->_numberOfStolenWriters_ == 0){
-        pthread_cond_broadcast(&(this->_cond_StolenReaders_));
-        pthread_cond_signal(&(this->_cond_StolenWriters_));
-    }
-    pthread_mutex_unlock(&(this->_mutex_Stolen_));
+    pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
 void Factory::_produceLockFactory_() {
@@ -455,6 +429,7 @@ void Factory::_thiefLockFactory_() {
     }
     this->_numberOfFactoryWriters_++;//thief write to factory
     this->_counterWaitingThievs_--;//thief enter the factory stop waiting
+    this->_stolenWriters_ = true;
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
 
@@ -498,6 +473,7 @@ int Factory::_buyerLockFactory_() {
 void Factory::_writersUnlock_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
     this->_numberOfFactoryWriters_--;
+    this->_stolenWriters_ = false;
     this->_callWaitingCond_();
     pthread_mutex_unlock(&(this->_mutex_Factory_));
 }
