@@ -419,7 +419,8 @@ void Factory::_produceLockFactory_() {
 
 void Factory::_thiefLockFactory_() {
     pthread_mutex_lock(&(this->_mutex_Factory_));
-    while(!this->_factoryIsOpen_|| this->_numberOfFactoryWriters_ > 0 || this->_numberOfFactoryReaders_ > 0) {
+    while(!this->_factoryIsOpen_|| this->_numberOfStolenReaders_ > 0 ||
+          this->_numberOfFactoryWriters_ > 0 || this->_numberOfFactoryReaders_ > 0) {
         pthread_cond_wait(&(this->_cond_Thievs_), &(this->_mutex_Factory_));
     }
     this->_numberOfFactoryWriters_++;//thief write to factory
