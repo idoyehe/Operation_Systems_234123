@@ -4,7 +4,7 @@ chmod 700 *
 ./makefile
 
 counter=0
-for i in `seq 1 5`;do
+for i in `seq 1 6`;do
 	echo Running test No. $i
 	while (( $counter < 100))
 	do
