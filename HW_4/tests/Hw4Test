@@ -1,0 +1,39 @@
+#!/bin/bash
+
+make
+
+#install module
+insmod ./intercept.o program_name="Bill"
+#VALIDATE_EXIT_CODE "instmod"
+
+#create files:
+gcc main.c -o Bill
+
+#run the proccess 
+./Bill &
+
+myvar=$(ps -ef | grep "Bill" | awk '{print $2}' | head -1)
+ kill -9 $myvar 
+ newvar=$(ps -ef | grep "Bill" | wc -l)
+ if((newvar == 0)); then 
+ 	echo "FAILED! : Bill shoul not delete"
+ 	rmmod intercept
+ 	exit
+  fi
+# # remove module and install with other name
+ rmmod intercept
+ insmod ./intercept.o program_name="other"
+
+# # now should be ok
+ kill -9 $myvar
+# VALIDATE_OK "kill -9 $id"
+sleep 1
+myvar=$(ps -ef | grep "Bill" | wc -l)
+if (( myvar != 0 )); then
+        echo "FAILED!: Bill still exist"
+        rmmod intercept
+        exit
+    fi  
+#finish
+rmmod intercept
+exit

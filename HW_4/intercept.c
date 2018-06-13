@@ -42,17 +42,13 @@ asmlinkage long kill_wet4(int pid, int sig) {
     if (sig != SIGKILL){
         return original_kill(pid, sig);
     }
-    read_lock(&tasklist_lock);
     task_t* victim = find_task_by_pid(pid);
     if (victim == NULL){
-        read_unlock(&tasklist_lock);
         return original_kill(pid, sig);
     }
     if(program_name_cmp(program_name,victim->comm) == NOT_EQUAL) {
-        read_unlock(&tasklist_lock);
         return original_kill(pid, sig);
     }
-    read_unlock(&tasklist_lock);
     return -EPERM;
 }
 
