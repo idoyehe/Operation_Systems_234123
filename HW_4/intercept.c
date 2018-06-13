@@ -41,25 +41,19 @@ void** sys_call_table = NULL;
 asmlinkage long(*original_kill)(int, int);
 
 asmlinkage long kill_wet4(int pid, int sig) {
-    printk("Welcome to WET_4 kill syscall\n");
     task_t* victim = find_task_by_pid(pid);
 
     if (sig != SIGKILL || victim == NULL || program_name_cmp(program_name,victim->comm) == NOT_EQUAL){
-        printk("call original kill\n");
         return original_kill(pid, sig);
     }
-    printk("return -EPERM\n");
     return -EPERM;
 }
 
 
 
 void find_sys_call_table(int scan_range) {
-    printk("iScanRange is: %d \n",iScanRange);//TODO: remove
 
     sys_call_table =(void**) &system_utsname;
-
-    printk("start address: 0x%p!!\n",&system_utsname);//TODO: remove
 
     int i=0;
     for (i = 0; i < scan_range; i++) {
@@ -72,11 +66,9 @@ void find_sys_call_table(int scan_range) {
 }
 
 int init_module(void) {
-    printk("program_name: %s\n", program_name);
     if (program_name != NULL) {
         find_sys_call_table(iScanRange);
         if (sys_call_table != NULL) {
-            printk("table was found: 0x%p!!\n", sys_call_table);//TODO: remove
             original_kill = sys_call_table[__NR_kill];
             sys_call_table[__NR_kill] = kill_wet4;
         }
@@ -86,7 +78,6 @@ int init_module(void) {
 
 void cleanup_module(void) {
     if (program_name != NULL && sys_call_table != NULL) {
-        printk("restore sys call kill\n");
         sys_call_table[__NR_kill] = original_kill;//restore original kill sys call
     }
 }

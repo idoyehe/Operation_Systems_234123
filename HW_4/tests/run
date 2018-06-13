@@ -2,6 +2,7 @@
 
 rmmod intercept 2> killedG.out >> killedG.out
 
+make
 gcc killerG.c -o killerG.out
 gcc killedG.c -o killed1G.out
 gcc killedG.c -o killed2G.out
@@ -60,7 +61,6 @@ rmmod intercept
 #test #6 + #7
 insmod intercept.o program_name="killed1G.out"
 res=`./killerG.out`
-echo $res
 echo -n "TEST#6:"
 if [[ $res == "09" ]]; then
 	echo SUCCESS!
