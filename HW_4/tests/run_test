@@ -1,0 +1,246 @@
+#!/bin/bash
+
+rmmod intercept 2> killed1G.out >> killed1G.out
+
+gcc killerG.c -o killerG.out
+gcc killedG.c -o killed1G.out
+gcc killedG.c -o killed2G.out
+
+#T = SIGTERM signal
+#K = SIGKILL signal
+#N = module on and should work
+#F = module off
+#D = module on and should not work
+
+#0 = ended successfully
+#15 = ended by SIGTERM
+#9 = ended by SIGKILL
+#33 = ended because file not found
+
+#test #1 - always success
+res=`./killerG.out KF KF`
+echo -n "TEST#1:"
+if [[ $res == "99" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+
+#test #2 - always success
+res=`./killerG.out TF TF`
+echo -n "TEST#2:"
+if [[ $res == "1515" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+
+#test #3 - always success
+res=`./killerG.out KF TF`
+echo -n "TEST#3:"
+if [[ $res == "915" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+
+#test #4
+insmod intercept.o
+res=`./killerG.out KD KD`
+echo -n "TEST#4:"
+if [[ $res == "99" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #5
+insmod intercept.o
+res=`./killerG.out KD TD`
+echo -n "TEST#5:"
+if [[ $res == "915" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #6
+insmod intercept.o program_name="killed1G.out"
+res=`./killerG.out KN KD`
+echo -n "TEST#6.1:"
+if [[ $res == "09" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+res=`./killerG.out KN KD`
+echo -n "TEST#6.2:"
+if [[ $res == "09" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #7
+insmod intercept.o program_name="killed1G.out"
+res=`./killerG.out TD KD`
+echo -n "TEST#7:"
+if [[ $res == "159" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #8
+insmod intercept.o program_name="killed1G.out"
+res=`./killerG.out KN TD`
+echo -n "TEST#8:"
+if [[ $res == "015" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #9
+insmod intercept.o program_name="killed1G.out"
+res=`./killerG.out TD TD`
+echo -n "TEST#9:"
+if [[ $res == "1515" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #10
+insmod intercept.o program_name="killed2G.out"
+res=`./killerG.out TD KN`
+echo -n "TEST#10:"
+if [[ $res == "150" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #11
+insmod intercept.o program_name="killed2G.out"
+res=`./killerG.out KD TD`
+echo -n "TEST#11:"
+if [[ $res == "915" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #12
+insmod intercept.o program_name="killed2G.out"
+res=`./killerG.out TD TD`
+echo -n "TEST#12:"
+if [[ $res == "1515" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #13
+insmod intercept.o program_name="killegG.out"
+res=`./killerG.out KD KD`
+echo -n "TEST#13:"
+if [[ $res == "99" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #14
+insmod intercept.o program_name="killegG.out"
+res=`./killerG.out TD KD`
+echo -n "TEST#14:"
+if [[ $res == "159" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #15
+rm -rf killed1G.out
+
+#test #15.1
+insmod intercept.o program_name="killed1G.out"
+res=`./killerG.out KD KD`
+echo -n "TEST#15.1:"
+if [[ $res == "339" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+
+#test #15.2
+insmod intercept.o program_name="killed2G.out"
+res=`./killerG.out KD KN`
+echo -n "TEST#15.2:"
+if [[ $res == "330" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+#test #16
+rm -rf killed2G.out
+
+#test #16.1
+insmod intercept.o program_name="killedG.out"
+res=`./killerG.out KD KD`
+echo -n "TEST#16.1:"
+if [[ $res == "3333" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+gcc killedG.c -o killed1G.out
+
+#test #16.2
+insmod intercept.o program_name="killedG.out"
+res=`./killerG.out TD KD`
+echo -n "TEST#16.2:"
+if [[ $res == "1533" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+rmmod intercept
+
+gcc killedG.c -o killed2G.out
+
+#test #17 - always success
+res=`./killerG.out KF KF`
+echo -n "TEST#17:"
+if [[ $res == "99" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi
+
+#test #18 - always success
+res=`./killerG.out TF TF`
+echo -n "TEST#18:"
+if [[ $res == "1515" ]]; then
+	echo SUCCESS!
+else
+	echo FAILED!
+fi

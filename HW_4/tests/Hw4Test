@@ -35,5 +35,6 @@ if (( myvar != 0 )); then
         exit
     fi  
 #finish
+echo "SUCCESS"
 rmmod intercept
 exit
